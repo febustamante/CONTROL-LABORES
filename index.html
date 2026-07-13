@@ -182,10 +182,19 @@ footer b{color:var(--burdeo)}
 
   <div class="kpis" id="kpis"></div>
 
+  <h2>Filtros</h2>
+  <p class="hint">Los filtros se encadenan y afectan tanto el avance por cuartel como la lista de folios. El avance por cuartel usa la <b>labor</b> elegida.</p>
+  <div class="bar" style="flex-wrap:wrap">
+    <select id="fGrupoLabor" class="filtroSel"><option value="">Todos los grupos labor</option></select>
+    <select id="fCampo" class="filtroSel"><option value="">Todos los campos</option></select>
+    <select id="fVariedad" class="filtroSel"><option value="">Todas las variedades</option></select>
+    <select id="fLabor" class="filtroSel"><option value="">Todas las labores</option></select>
+    <select id="fCuartel" class="filtroSel"><option value="">Todos los cuarteles</option></select>
+    <button id="limpiarFiltros" style="border:1px solid var(--linea);background:var(--papel);color:var(--gris);font-family:inherit;font-size:12px;padding:8px 12px;border-radius:8px;cursor:pointer">Limpiar</button>
+  </div>
+
   <h2>Avance por cuartel</h2>
-  <p class="hint">El avance se mide <b>por labor</b>. Primero elige el grupo, luego la labor específica. Verde = aprobado · naranja = preliminar.</p>
-  <div class="seg" id="grupoLaborSel" style="margin-bottom:10px;flex-wrap:wrap"></div>
-  <div class="seg" id="laborSel" style="margin-bottom:14px;flex-wrap:wrap"></div>
+  <p class="hint">Verde = aprobado · naranja = preliminar. Elige una <b>labor</b> en los filtros para ver el % de avance.</p>
   <div class="cuarteles" id="cuarteles"></div>
 
   <h2>Folios para revisar</h2>
@@ -197,13 +206,6 @@ footer b{color:var(--burdeo)}
     </div>
     <input class="search" id="buscar" placeholder="Buscar folio, cuartel, labor o encargado…">
     <span class="count" id="conteo"></span>
-  </div>
-  <div class="bar" style="margin-top:-6px">
-    <select id="fCampo" class="filtroSel"><option value="">Todos los campos</option></select>
-    <select id="fLabor" class="filtroSel"><option value="">Todas las labores</option></select>
-    <select id="fCuartel" class="filtroSel"><option value="">Todos los cuarteles</option></select>
-    <select id="fVariedad" class="filtroSel"><option value="">Todas las variedades</option></select>
-    <button id="limpiarFiltros" style="border:1px solid var(--linea);background:var(--papel);color:var(--gris);font-family:inherit;font-size:12px;padding:8px 12px;border-radius:8px;cursor:pointer">Limpiar</button>
   </div>
   <div class="folios" id="folios"></div>
 
@@ -342,17 +344,30 @@ function alerta(f){
   return {cls:"a-ok",txt:f.dias+" días"};
 }
 
+// ====== ESTADO DE FILTROS (5 en cascada) ======
+let filtroActual="TODOS", busqueda="";
+let fGrupoLabor="", fCampo="", fVariedad="", fLabor="", fCuartel="";
+
+// Aplica los filtros de cascada a un conjunto de folios
+function aplicarCascada(base, hasta){
+  // hasta = hasta qué nivel aplicar (para poblar cada select con lo que dejan los anteriores)
+  let l=base.slice();
+  if(hasta>=1 && fGrupoLabor) l=l.filter(f=>f.grupoLabor===fGrupoLabor);
+  if(hasta>=2 && fCampo)      l=l.filter(f=>f.grupo===fCampo);
+  if(hasta>=3 && fVariedad)   l=l.filter(f=>f.variedad===fVariedad);
+  if(hasta>=4 && fLabor)      l=l.filter(f=>f.labor===fLabor);
+  if(hasta>=5 && fCuartel)    l=l.filter(f=>f.cuartel===fCuartel);
+  return l;
+}
+
 function render(){
   document.getElementById("fechaRep").textContent = REPORTE;
-
-  // KPIs
   const tot=FOLIOS.length;
   const prelim=FOLIOS.filter(f=>f.estado==="PRELIMINAR").length;
   const aprob=tot-prelim;
   const p3=FOLIOS.filter(f=>f.estado==="PRELIMINAR"&&f.dias>3).length;
   const pAp=FOLIOS.filter(f=>f.estado==="APROBADO").reduce((s,f)=>s+f.plantas,0);
   const pPr=FOLIOS.filter(f=>f.estado==="PRELIMINAR").reduce((s,f)=>s+f.plantas,0);
-  const costo=FOLIOS.reduce((s,f)=>s+f.costo,0);
   const kpis=[
     {lbl:"Total folios",val:tot,cls:""},
     {lbl:"Preliminares",val:prelim,cls:"acc-prelim",sub:p3+" con más de 3 días"},
@@ -361,42 +376,56 @@ function render(){
   ];
   document.getElementById("kpis").innerHTML=kpis.map(k=>
     `<div class="kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub?`<div class="sub">${k.sub}</div>`:""}</div>`).join("");
-
-  // Grupos de labor con plantas (primer selector), ordenados por volumen
-  const porGrupo={};
-  FOLIOS.forEach(f=>{ if(f.plantas>0) porGrupo[f.grupoLabor]=(porGrupo[f.grupoLabor]||0)+f.plantas; });
-  const grupos=Object.entries(porGrupo).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
-  if(!grupoLaborActual || !grupos.includes(grupoLaborActual)) grupoLaborActual = grupos[0] || null;
-  document.getElementById("grupoLaborSel").innerHTML = grupos.map(g=>
-    `<button data-g="${g}" class="${g===grupoLaborActual?'on':''}">${g}</button>`).join("");
-
-  poblarFiltrosFolios();
-  dibujarLabores();
-}
-
-// Segundo selector: labores DENTRO del grupo elegido
-function dibujarLabores(){
-  const porLabor={};
-  FOLIOS.filter(f=>f.grupoLabor===grupoLaborActual).forEach(f=>{
-    if(f.plantas>0) porLabor[f.labor]=(porLabor[f.labor]||0)+f.plantas;
-  });
-  const labores=Object.entries(porLabor).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
-  if(!laborActual || !labores.includes(laborActual)) laborActual = labores[0] || null;
-  document.getElementById("laborSel").innerHTML = labores.length
-    ? labores.map(l=>`<button data-l="${l}" class="${l===laborActual?'on':''}">${l.charAt(0)+l.slice(1).toLowerCase()}</button>`).join("")
-    : '<span style="font-size:12px;color:var(--gris);padding:8px">Sin labores con plantas en este grupo</span>';
+  poblarFiltros();
   drawCuarteles();
   drawFolios();
 }
 
+// Puebla los 5 selects: cada uno muestra solo lo que dejan los filtros anteriores
+function poblarFiltros(){
+  const opt=(arr,sel)=>arr.map(v=>`<option value="${v}" ${v===sel?'selected':''}>${v}</option>`).join("");
+  const uniq=(l,campo)=>[...new Set(l.map(f=>f[campo]).filter(v=>v&&v!=="Sin variedad"&&v!=="Sin clasificar"))].sort();
+
+  // Nivel 1: grupos labor (sobre todos)
+  const grupos = uniq(FOLIOS,"grupoLabor");
+  // Nivel 2: campos, filtrados por grupo labor
+  const campos = uniq(aplicarCascada(FOLIOS,1),"grupo");
+  // Nivel 3: variedades, filtradas por grupo+campo
+  const varis  = uniq(aplicarCascada(FOLIOS,2),"variedad");
+  // Nivel 4: labores, filtradas por grupo+campo+variedad
+  const labores= uniq(aplicarCascada(FOLIOS,3),"labor");
+  // Nivel 5: cuarteles, filtrados por todo lo anterior
+  const cuartel= uniq(aplicarCascada(FOLIOS,4),"cuartel");
+
+  // si un valor elegido ya no está disponible, se limpia
+  if(fCampo && !campos.includes(fCampo)) fCampo="";
+  if(fVariedad && !varis.includes(fVariedad)) fVariedad="";
+  if(fLabor && !labores.includes(fLabor)) fLabor="";
+  if(fCuartel && !cuartel.includes(fCuartel)) fCuartel="";
+
+  document.getElementById("fGrupoLabor").innerHTML='<option value="">Todos los grupos labor</option>'+opt(grupos,fGrupoLabor);
+  document.getElementById("fCampo").innerHTML='<option value="">Todos los campos</option>'+opt(campos,fCampo);
+  document.getElementById("fVariedad").innerHTML='<option value="">Todas las variedades</option>'+opt(varis,fVariedad);
+  document.getElementById("fLabor").innerHTML='<option value="">Todas las labores</option>'+opt(labores,fLabor);
+  document.getElementById("fCuartel").innerHTML='<option value="">Todos los cuarteles</option>'+opt(cuartel,fCuartel);
+}
+
 function drawCuarteles(){
+  const cont=document.getElementById("cuarteles");
+  // el avance por cuartel necesita una labor específica
+  if(!fLabor){
+    cont.innerHTML='<p class="empty">Elige una <b>labor</b> en los filtros para ver el % de avance por cuartel.</p>';
+    return;
+  }
+  // aplica toda la cascada, y fija la labor elegida
+  const base=aplicarCascada(FOLIOS,5);
   const cq={};
-  FOLIOS.filter(f=>f.labor===laborActual).forEach(f=>{
+  base.filter(f=>f.labor===fLabor).forEach(f=>{
     if(!cq[f.cuartel]) cq[f.cuartel]={cuartel:f.cuartel,grupo:f.grupo,ap:0,pr:0};
     if(f.estado==="APROBADO") cq[f.cuartel].ap+=f.plantas; else cq[f.cuartel].pr+=f.plantas;
   });
   const arr=Object.values(cq).filter(c=>c.ap+c.pr>0).sort((a,b)=>(b.ap+b.pr)-(a.ap+a.pr));
-  document.getElementById("cuarteles").innerHTML=arr.map(c=>{
+  cont.innerHTML=arr.map(c=>{
     const comp=c.ap+c.pr;
     const total=PLANTAS_TOTALES[c.cuartel];
     let barMax = total || comp;
@@ -410,35 +439,15 @@ function drawCuarteles(){
       <div class="split"><div class="ap" style="width:${apW}%"></div><div class="pr" style="width:${prW}%"></div></div>
       <div class="leg"><span><i style="background:var(--verde)"></i>${num(c.ap)} aprob</span><span><i style="background:var(--naranja)"></i>${num(c.pr)} prelim</span></div>
     </div>`;
-  }).join("") || '<p class="empty">Sin plantas de trato para esta labor.</p>';
-}
-
-let filtroActual="TODOS", busqueda="", laborActual=null, grupoLaborActual=null;
-let fCampo="", fLabor="", fCuartel="", fVariedad="";
-
-function poblarFiltrosFolios(){
-  const campos=[...new Set(FOLIOS.map(f=>f.grupo).filter(Boolean))].sort();
-  const labores=[...new Set(FOLIOS.map(f=>f.labor).filter(Boolean))].sort();
-  const cuarteles=[...new Set(FOLIOS.map(f=>f.cuartel).filter(Boolean))].sort();
-  const variedades=[...new Set(FOLIOS.map(f=>f.variedad).filter(v=>v&&v!=="Sin variedad"))].sort();
-  const opt=(arr,sel)=>arr.map(v=>`<option value="${v}" ${v===sel?'selected':''}>${v}</option>`).join("");
-  const elC=document.getElementById("fCampo"), elL=document.getElementById("fLabor"), elQ=document.getElementById("fCuartel"), elV=document.getElementById("fVariedad");
-  if(elC) elC.innerHTML='<option value="">Todos los campos</option>'+opt(campos,fCampo);
-  if(elL) elL.innerHTML='<option value="">Todas las labores</option>'+opt(labores,fLabor);
-  if(elQ) elQ.innerHTML='<option value="">Todos los cuarteles</option>'+opt(cuarteles,fCuartel);
-  if(elV) elV.innerHTML='<option value="">Todas las variedades</option>'+opt(variedades,fVariedad);
+  }).join("") || '<p class="empty">Sin plantas de trato para esta labor con los filtros elegidos.</p>';
 }
 
 function drawFolios(){
   const compCuartel={};
   FOLIOS.forEach(f=>{const k=f.cuartel+"|"+f.labor;compCuartel[k]=(compCuartel[k]||0)+f.plantas;});
 
-  let list=FOLIOS.slice();
+  let list=aplicarCascada(FOLIOS,5);
   if(filtroActual!=="TODOS") list=list.filter(f=>f.estado===filtroActual);
-  if(fCampo)    list=list.filter(f=>f.grupo===fCampo);
-  if(fLabor)    list=list.filter(f=>f.labor===fLabor);
-  if(fCuartel)  list=list.filter(f=>f.cuartel===fCuartel);
-  if(fVariedad) list=list.filter(f=>f.variedad===fVariedad);
   if(busqueda){const q=busqueda.toLowerCase();
     list=list.filter(f=>(f.folio+f.cuartel+f.labor+f.encargado+f.grupo).toLowerCase().includes(q));}
   list.sort((a,b)=>{
@@ -510,33 +519,23 @@ async function anularFolio(folio){
   }
 }
 
-document.getElementById("grupoLaborSel").addEventListener("click",e=>{
-  if(e.target.tagName!=="BUTTON")return;
-  document.querySelectorAll("#grupoLaborSel button").forEach(b=>b.classList.remove("on"));
-  e.target.classList.add("on");
-  grupoLaborActual=e.target.dataset.g;
-  laborActual=null;            // resetea la labor al cambiar de grupo
-  dibujarLabores();            // recarga las labores de ese grupo
-});
-document.getElementById("laborSel").addEventListener("click",e=>{
-  if(e.target.tagName!=="BUTTON")return;
-  document.querySelectorAll("#laborSel button").forEach(b=>b.classList.remove("on"));
-  e.target.classList.add("on"); laborActual=e.target.dataset.l; drawCuarteles(); drawFolios();
-});
 document.getElementById("filtro").addEventListener("click",e=>{
   if(e.target.tagName!=="BUTTON")return;
   document.querySelectorAll("#filtro button").forEach(b=>b.classList.remove("on"));
   e.target.classList.add("on"); filtroActual=e.target.dataset.f; drawFolios();
 });
 document.getElementById("buscar").addEventListener("input",e=>{busqueda=e.target.value;drawFolios();});
-document.getElementById("fCampo").addEventListener("change",e=>{fCampo=e.target.value;drawFolios();});
-document.getElementById("fLabor").addEventListener("change",e=>{fLabor=e.target.value;drawFolios();});
-document.getElementById("fCuartel").addEventListener("change",e=>{fCuartel=e.target.value;drawFolios();});
-document.getElementById("fVariedad").addEventListener("change",e=>{fVariedad=e.target.value;drawFolios();});
+
+// Los 5 filtros en cascada: al cambiar uno, se repuebla todo y se redibuja
+function onFiltro(){ poblarFiltros(); drawCuarteles(); drawFolios(); }
+document.getElementById("fGrupoLabor").addEventListener("change",e=>{fGrupoLabor=e.target.value; fCampo=fVariedad=fLabor=fCuartel=""; onFiltro();});
+document.getElementById("fCampo").addEventListener("change",e=>{fCampo=e.target.value; fVariedad=fLabor=fCuartel=""; onFiltro();});
+document.getElementById("fVariedad").addEventListener("change",e=>{fVariedad=e.target.value; fLabor=fCuartel=""; onFiltro();});
+document.getElementById("fLabor").addEventListener("change",e=>{fLabor=e.target.value; fCuartel=""; onFiltro();});
+document.getElementById("fCuartel").addEventListener("change",e=>{fCuartel=e.target.value; onFiltro();});
 document.getElementById("limpiarFiltros").addEventListener("click",()=>{
-  fCampo=fLabor=fCuartel=fVariedad="";
-  ["fCampo","fLabor","fCuartel","fVariedad"].forEach(id=>document.getElementById(id).value="");
-  drawFolios();
+  fGrupoLabor=fCampo=fVariedad=fLabor=fCuartel="";
+  onFiltro();
 });
 
 // ============================================================
