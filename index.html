@@ -632,23 +632,87 @@ function _fila(o,estado){return {folio:o.folio,estado,grupo:o.grupo,cuartel:o.cu
 const _analizar=document.getElementById("analizar");
 if(_analizar) _analizar.addEventListener("click",()=>{
   const log=document.getElementById('cargaLog');log.innerHTML='';
+  document.getElementById('cargaResumen').innerHTML='';
   const add=(c,h)=>log.insertAdjacentHTML('beforeend',`<div style="padding:4px 0;color:var(--${c})">${h}</div>`);
-  const lil=_procLil(_sheet(wbLil,['Datos']));
-  const rep=_procRep(_sheet(wbRep,['Data']));
+
+  // ---- Validación previa sobre las filas crudas ----
+  const errores=[], avisos=[];
+  const cuartelesValidos=new Set(Object.keys(PLANTAS_TOTALES).map(c=>c.toUpperCase()));
+  const gruposValidos=new Set(["EL CERRILLO","RULO","NUEVO SENDERO","VALDÉS","PACKING","SAN JOSÉ","GENERALES"]);
+  const laborConocida=lab=>Object.prototype.hasOwnProperty.call(GRUPO_LABOR,_up(lab));
+  // cuarteles "generales" que no están en catálogo de plantas pero son válidos (casetas, generales, packing)
+  const cuartelExento=cu=>{const u=_up(cu);return u.includes("GENERAL")||u.includes("CASETA")||u.includes("PACKING")||u.includes("BODEGA")||u.includes("BAÑO")||u.includes("ADM")||u==="EL CERRILLO"||u==="VALDES"||u==="CASA CAMPO CERRILLO";};
+
+  function validar(rows, origen, cols){
+    const hoja = rows && rows.length;
+    if(!hoja){ errores.push(`${origen}: no se encontraron filas o falta la hoja esperada.`); return; }
+    const primera=rows[0];
+    [cols.folio,cols.cuartel,cols.labor,cols.grupo,cols.fecha].forEach(c=>{
+      if(!(c in primera)) errores.push(`${origen}: falta la columna "${c}".`);
+    });
+    const cuartelesMal=new Set(), laboresMal=new Set(), gruposMal=new Set();
+    let sinFolio=0, sinFecha=0;
+    rows.forEach(r=>{
+      const folio=_S(r[cols.folio]);
+      if(!folio) { sinFolio++; return; }
+      const cuartel=_S(r[cols.cuartel]);
+      const labor=_S(r[cols.labor]);
+      const grupo=_S(r[cols.grupo]);
+      const fecha=r[cols.fecha];
+      if(!fecha || isNaN(new Date(fecha).getTime())) sinFecha++;
+      if(cuartel && !cuartelExento(cuartel) && !cuartelesValidos.has(_up(cuartel))) cuartelesMal.add(cuartel);
+      if(labor && !laborConocida(labor)) laboresMal.add(labor);
+      if(grupo && !gruposValidos.has(_up(grupo))) gruposMal.add(grupo);
+    });
+    if(sinFolio) errores.push(`${origen}: ${sinFolio} fila(s) sin número de folio.`);
+    if(sinFecha) errores.push(`${origen}: ${sinFecha} fila(s) con fecha vacía o ilegible.`);
+    cuartelesMal.forEach(c=>errores.push(`${origen}: cuartel "${c}" no existe en el catálogo (¿mal escrito?).`));
+    laboresMal.forEach(l=>avisos.push(`${origen}: labor "${l}" no reconocida → quedará "Sin clasificar".`));
+    gruposMal.forEach(g=>avisos.push(`${origen}: grupo centro costo "${g}" desconocido.`));
+  }
+
+  const colsLil={folio:'FOLIO',cuartel:'CENTRO COSTO',labor:'LABOR',grupo:'GRUPO CENTRO COSTO',fecha:'FECHA'};
+  const colsRep={folio:'Número de registro',cuartel:'Centro Costo',labor:'Labor',grupo:'Grupo Centro Costo',fecha:'Fecha de Creación'};
+  const rowsLil=_sheet(wbLil,['Datos']);
+  const rowsRep=_sheet(wbRep,['Data']);
+  validar(rowsLil,'Liliana',colsLil);
+  validar(rowsRep,'Reporte',colsRep);
+
+  // mostrar errores y avisos
+  if(errores.length){
+    add('rojo',`<b>🔴 ${errores.length} error(es) que impiden cargar:</b>`);
+    errores.forEach(e=>add('rojo','• '+e));
+  }
+  if(avisos.length){
+    add('naranja',`<b>🟡 ${avisos.length} aviso(s) (puedes cargar igual):</b>`);
+    avisos.forEach(a=>add('naranja','• '+a));
+  }
+  if(!errores.length && !avisos.length){
+    add('verde','✓ Sin errores ni avisos. Datos limpios.');
+  }
+
+  // procesar (para el resumen)
+  const lil=_procLil(rowsLil);
+  const rep=_procRep(rowsRep);
   const foliosLil=new Set(lil.map(f=>f.folio));
   const prelim=rep.filter(f=>f.estado==='PRELIMINAR'&&!foliosLil.has(f.folio));
   const aprobRep=rep.filter(f=>f.estado==='APROBADO'&&!foliosLil.has(f.folio));
   paraCargar={aprobados:[...lil,...aprobRep],preliminares:prelim};
   const pAp=paraCargar.aprobados.reduce((s,f)=>s+f.plantas,0);
   const pPr=prelim.reduce((s,f)=>s+f.plantas,0);
-  add('gris',`Liliana: <b>${lil.length}</b> aprobados · Reporte: <b>${rep.length}</b> folios.`);
+
+  // Si hay errores rojos, NO se permite cargar (botón bloqueado)
+  const bloqueado = errores.length>0;
   document.getElementById('cargaResumen').innerHTML=
-    `<div style="background:var(--verde-bg);border:1px solid var(--verde);border-radius:10px;padding:14px;margin-top:12px;font-size:13px">
+    `<div style="background:${bloqueado?'var(--rojo-bg)':'var(--verde-bg)'};border:1px solid ${bloqueado?'var(--rojo)':'var(--verde)'};border-radius:10px;padding:14px;margin-top:12px;font-size:13px">
      <b>${paraCargar.aprobados.length}</b> aprobados (reemplazan) · ${pAp.toLocaleString('es-CL')} plantas<br>
      <b>${prelim.length}</b> preliminares del reporte · ${pPr.toLocaleString('es-CL')} plantas<br>
-     <span style="font-size:11px;color:var(--gris)">Los preliminares ya aprobados o anulados se respetan (no se duplican ni reviven).</span>
-     <button id="confirmarCarga" style="width:100%;border:0;background:var(--verde);color:#fff;font-family:inherit;font-weight:700;padding:11px;border-radius:8px;cursor:pointer;margin-top:10px">✓ Confirmar y guardar en la base</button></div>`;
-  document.getElementById('confirmarCarga').addEventListener('click',_cargar);
+     <span style="font-size:11px;color:var(--gris)">Los preliminares ya aprobados o anulados se respetan.</span>
+     ${bloqueado
+        ? `<div style="color:var(--rojo);font-weight:700;margin-top:10px">🔴 Corrige los errores en rojo antes de cargar. La carga está bloqueada.</div>`
+        : `<button id="confirmarCarga" style="width:100%;border:0;background:var(--verde);color:#fff;font-family:inherit;font-weight:700;padding:11px;border-radius:8px;cursor:pointer;margin-top:10px">✓ Confirmar y guardar en la base</button>`}
+     </div>`;
+  if(!bloqueado) document.getElementById('confirmarCarga').addEventListener('click',_cargar);
 });
 
 async function _cargar(){
