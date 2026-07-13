@@ -42,6 +42,8 @@ h1{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(26px,4vw,40px);l
 .seg button{border:0;background:transparent;padding:9px 15px;font-family:inherit;font-size:13px;font-weight:600;color:var(--gris);cursor:pointer;transition:.15s}
 .seg button.on{background:var(--burdeo);color:#fff}
 .search{flex:1;min-width:180px;border:1px solid var(--linea);border-radius:10px;padding:9px 13px;font-family:inherit;font-size:13px;background:var(--papel);color:var(--tinta)}
+.filtroSel{flex:1;min-width:140px;border:1px solid var(--linea);border-radius:10px;padding:9px 11px;font-family:inherit;font-size:13px;background:var(--papel);color:var(--tinta);cursor:pointer}
+.filtroSel:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
 .search:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
 .count{font-size:12px;color:var(--gris);margin-left:auto}
 
@@ -196,6 +198,13 @@ footer b{color:var(--burdeo)}
     <input class="search" id="buscar" placeholder="Buscar folio, cuartel, labor o encargado…">
     <span class="count" id="conteo"></span>
   </div>
+  <div class="bar" style="margin-top:-6px">
+    <select id="fCampo" class="filtroSel"><option value="">Todos los campos</option></select>
+    <select id="fLabor" class="filtroSel"><option value="">Todas las labores</option></select>
+    <select id="fCuartel" class="filtroSel"><option value="">Todos los cuarteles</option></select>
+    <select id="fVariedad" class="filtroSel"><option value="">Todas las variedades</option></select>
+    <button id="limpiarFiltros" style="border:1px solid var(--linea);background:var(--papel);color:var(--gris);font-family:inherit;font-size:12px;padding:8px 12px;border-radius:8px;cursor:pointer">Limpiar</button>
+  </div>
   <div class="folios" id="folios"></div>
 
   <footer>
@@ -208,87 +217,9 @@ footer b{color:var(--burdeo)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
-// Plantas totales por cuartel (catálogo fijo 2026)
-const PLANTAS_TOTALES = {
-  "A01": 2116,
-  "A02": 1892,
-  "A07": 2897,
-  "A08": 3027,
-  "A09": 2533,
-  "A10": 2625,
-  "A11": 1434,
-  "C01": 3978,
-  "C02": 3729,
-  "C03": 3782,
-  "C04": 5538,
-  "C05": 5026,
-  "C06": 5640,
-  "C07": 3353,
-  "C08": 3183,
-  "C09": 3697,
-  "C10": 5682,
-  "C11": 4632,
-  "C12": 4901,
-  "C13": 4706,
-  "C14": 2498,
-  "C15": 4785,
-  "C16": 4119,
-  "C17": 4049,
-  "C18": 3615,
-  "C19": 3440,
-  "C20": 1298,
-  "C21": 1175,
-  "C22": 1954,
-  "C23": 1288,
-  "C24": 2109,
-  "C25": 2773,
-  "C26": 808,
-  "C27": 2081,
-  "C28": 1976,
-  "C29": 2653,
-  "C37": 3617,
-  "C38": 3543,
-  "C39": 2526,
-  "C40": 8379,
-  "C41": 3768,
-  "C42": 4128,
-  "C43": 305,
-  "C44": 1132,
-  "C45": 1819,
-  "C46": 1077,
-  "C50": 4735,
-  "C51": 2667,
-  "C52": 5940,
-  "C53": 5342,
-  "C54": 3833,
-  "C55": 5704,
-  "C56": 5499,
-  "P01": 5060,
-  "P02": 7864,
-  "P03": 4728,
-  "P04": 4612,
-  "P05": 3021,
-  "P07": 2060,
-  "P12": 3189,
-  "P13": 4635,
-  "P14": 3523,
-  "P15": 5180,
-  "P16": 3630,
-  "P17": 3623,
-  "P18": 3611,
-  "R01": 3332,
-  "R02": 3260,
-  "R03": 3103,
-  "R04": 2907,
-  "V01": 4374,
-  "V02": 4620,
-  "V03": 4822,
-  "V04": 4712,
-  "V05": 5523,
-  "V06": 5284,
-  "V07": 5336,
-  "V08": 4793
-};
+// Catálogo de cuarteles: se carga desde Supabase al iniciar (plantas y variedad)
+let PLANTAS_TOTALES = {};   // { "C08": 3183, ... }
+let VARIEDAD_CUARTEL = {};  // { "C08": "AUTUMN CRISP", ... }
 
 // ====== CONEXIÓN SUPABASE ======
 const SUPABASE_URL = "https://cmfvnluppvqyqwpfjrbs.supabase.co";
@@ -301,7 +232,20 @@ let FOLIOS = [];       // filtrados por rol tras el login
 let usuarioActual = null;
 
 // Trae los folios desde Supabase y calcula días en preliminar
+async function cargarCatalogo(){
+  const { data, error } = await sb
+    .from("cuarteles_plantas")
+    .select("cuartel,plantas_total,variedad");
+  if(error){ console.error("Catálogo:", error.message); return; }
+  PLANTAS_TOTALES = {}; VARIEDAD_CUARTEL = {};
+  (data||[]).forEach(c=>{
+    if(c.plantas_total) PLANTAS_TOTALES[c.cuartel] = c.plantas_total;
+    if(c.variedad) VARIEDAD_CUARTEL[c.cuartel] = c.variedad;
+  });
+}
+
 async function cargarDatos(){
+  await cargarCatalogo();
   const { data, error } = await sb
     .from("folios_labores")
     .select("folio,estado,grupo,cuartel,labor,grupo_labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado");
@@ -317,7 +261,8 @@ async function cargarDatos(){
       return {
         folio:f.folio, estado:f.estado, grupo:f.grupo, cuartel:f.cuartel, labor:f.labor,
         grupoLabor:f.grupo_labor||"Sin clasificar", encargado:f.encargado, tipo:f.tipo, trab:f.trabajadores||0, plantas:f.plantas||0,
-        costo:f.costo||0, creado:f.fecha_creado||"", dias:dias
+        costo:f.costo||0, creado:f.fecha_creado||"", dias:dias,
+        variedad: VARIEDAD_CUARTEL[f.cuartel] || "Sin variedad"
       };
     });
   REPORTE = new Date().toLocaleString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
@@ -425,6 +370,7 @@ function render(){
   document.getElementById("grupoLaborSel").innerHTML = grupos.map(g=>
     `<button data-g="${g}" class="${g===grupoLaborActual?'on':''}">${g}</button>`).join("");
 
+  poblarFiltrosFolios();
   dibujarLabores();
 }
 
@@ -468,16 +414,33 @@ function drawCuarteles(){
 }
 
 let filtroActual="TODOS", busqueda="", laborActual=null, grupoLaborActual=null;
+let fCampo="", fLabor="", fCuartel="", fVariedad="";
+
+function poblarFiltrosFolios(){
+  const campos=[...new Set(FOLIOS.map(f=>f.grupo).filter(Boolean))].sort();
+  const labores=[...new Set(FOLIOS.map(f=>f.labor).filter(Boolean))].sort();
+  const cuarteles=[...new Set(FOLIOS.map(f=>f.cuartel).filter(Boolean))].sort();
+  const variedades=[...new Set(FOLIOS.map(f=>f.variedad).filter(v=>v&&v!=="Sin variedad"))].sort();
+  const opt=(arr,sel)=>arr.map(v=>`<option value="${v}" ${v===sel?'selected':''}>${v}</option>`).join("");
+  const elC=document.getElementById("fCampo"), elL=document.getElementById("fLabor"), elQ=document.getElementById("fCuartel"), elV=document.getElementById("fVariedad");
+  if(elC) elC.innerHTML='<option value="">Todos los campos</option>'+opt(campos,fCampo);
+  if(elL) elL.innerHTML='<option value="">Todas las labores</option>'+opt(labores,fLabor);
+  if(elQ) elQ.innerHTML='<option value="">Todos los cuarteles</option>'+opt(cuarteles,fCuartel);
+  if(elV) elV.innerHTML='<option value="">Todas las variedades</option>'+opt(variedades,fVariedad);
+}
+
 function drawFolios(){
-  // total comprometido por cuartel+labor (para % si se aprueba, dentro de la MISMA labor)
   const compCuartel={};
   FOLIOS.forEach(f=>{const k=f.cuartel+"|"+f.labor;compCuartel[k]=(compCuartel[k]||0)+f.plantas;});
 
   let list=FOLIOS.slice();
   if(filtroActual!=="TODOS") list=list.filter(f=>f.estado===filtroActual);
+  if(fCampo)    list=list.filter(f=>f.grupo===fCampo);
+  if(fLabor)    list=list.filter(f=>f.labor===fLabor);
+  if(fCuartel)  list=list.filter(f=>f.cuartel===fCuartel);
+  if(fVariedad) list=list.filter(f=>f.variedad===fVariedad);
   if(busqueda){const q=busqueda.toLowerCase();
     list=list.filter(f=>(f.folio+f.cuartel+f.labor+f.encargado+f.grupo).toLowerCase().includes(q));}
-  // preliminares primero, luego por cuartel
   list.sort((a,b)=>{
     if(a.estado!==b.estado) return a.estado==="PRELIMINAR"?-1:1;
     return a.cuartel<b.cuartel?-1:1;
@@ -511,6 +474,7 @@ function drawFolios(){
         <div class="meta">
           <span>👤 <b>${f.trab}</b> trab.</span>
           <span>📋 ${f.encargado}</span>
+          ${(f.costo>0 && f.trab>0)?`<span>💵 promedio <b>${money(Math.round(f.costo/f.trab))}</b>/persona</span>`:''}
           ${pctLine}
         </div>
       </div>
@@ -565,6 +529,15 @@ document.getElementById("filtro").addEventListener("click",e=>{
   e.target.classList.add("on"); filtroActual=e.target.dataset.f; drawFolios();
 });
 document.getElementById("buscar").addEventListener("input",e=>{busqueda=e.target.value;drawFolios();});
+document.getElementById("fCampo").addEventListener("change",e=>{fCampo=e.target.value;drawFolios();});
+document.getElementById("fLabor").addEventListener("change",e=>{fLabor=e.target.value;drawFolios();});
+document.getElementById("fCuartel").addEventListener("change",e=>{fCuartel=e.target.value;drawFolios();});
+document.getElementById("fVariedad").addEventListener("change",e=>{fVariedad=e.target.value;drawFolios();});
+document.getElementById("limpiarFiltros").addEventListener("click",()=>{
+  fCampo=fLabor=fCuartel=fVariedad="";
+  ["fCampo","fLabor","fCuartel","fVariedad"].forEach(id=>document.getElementById(id).value="");
+  drawFolios();
+});
 
 // ============================================================
 //  ZONA DE CARGA (solo admin) — leer Excel y escribir a Supabase
@@ -650,7 +623,7 @@ if(_analizar) _analizar.addEventListener("click",()=>{
     [cols.folio,cols.cuartel,cols.labor,cols.grupo,cols.fecha].forEach(c=>{
       if(!(c in primera)) errores.push(`${origen}: falta la columna "${c}".`);
     });
-    const cuartelesMal=new Set(), laboresMal=new Set(), gruposMal=new Set();
+    const cuartelesMal=new Set(), laboresMal=new Set(), gruposMal=new Set(), cuartelesSinPlantas=new Set();
     let sinFolio=0, sinFecha=0;
     rows.forEach(r=>{
       const folio=_S(r[cols.folio]);
@@ -660,13 +633,17 @@ if(_analizar) _analizar.addEventListener("click",()=>{
       const grupo=_S(r[cols.grupo]);
       const fecha=r[cols.fecha];
       if(!fecha || isNaN(new Date(fecha).getTime())) sinFecha++;
-      if(cuartel && !cuartelExento(cuartel) && !cuartelesValidos.has(_up(cuartel))) cuartelesMal.add(cuartel);
+      if(cuartel && !cuartelExento(cuartel)){
+        if(!cuartelesValidos.has(_up(cuartel))) cuartelesMal.add(cuartel);
+        else if(!PLANTAS_TOTALES[cuartel]) cuartelesSinPlantas.add(cuartel);
+      }
       if(labor && !laborConocida(labor)) laboresMal.add(labor);
       if(grupo && !gruposValidos.has(_up(grupo))) gruposMal.add(grupo);
     });
     if(sinFolio) errores.push(`${origen}: ${sinFolio} fila(s) sin número de folio.`);
     if(sinFecha) errores.push(`${origen}: ${sinFecha} fila(s) con fecha vacía o ilegible.`);
-    cuartelesMal.forEach(c=>errores.push(`${origen}: cuartel "${c}" no existe en el catálogo (¿mal escrito?).`));
+    cuartelesMal.forEach(c=>avisos.push(`${origen}: cuartel "${c}" no está en el catálogo — ¿es nuevo o está mal escrito? (se carga igual)`));
+    cuartelesSinPlantas.forEach(c=>avisos.push(`${origen}: cuartel "${c}" no tiene plantas cargadas — no se podrá calcular su % de avance.`));
     laboresMal.forEach(l=>avisos.push(`${origen}: labor "${l}" no reconocida → quedará "Sin clasificar".`));
     gruposMal.forEach(g=>avisos.push(`${origen}: grupo centro costo "${g}" desconocido.`));
   }
