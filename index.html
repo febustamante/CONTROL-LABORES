@@ -161,7 +161,8 @@ footer b{color:var(--burdeo)}
   <div class="kpis" id="kpis"></div>
 
   <h2>Avance por cuartel</h2>
-  <p class="hint">El avance se mide <b>por labor</b>: cada labor (poda, amarra, pintar…) recorre las mismas plantas del cuartel. Elige la labor para ver su avance. Verde = aprobado · naranja = preliminar.</p>
+  <p class="hint">El avance se mide <b>por labor</b>. Primero elige el grupo, luego la labor específica. Verde = aprobado · naranja = preliminar.</p>
+  <div class="seg" id="grupoLaborSel" style="margin-bottom:10px;flex-wrap:wrap"></div>
   <div class="seg" id="laborSel" style="margin-bottom:14px;flex-wrap:wrap"></div>
   <div class="cuarteles" id="cuarteles"></div>
 
@@ -282,7 +283,7 @@ let usuarioActual = null;
 async function cargarDatos(){
   const { data, error } = await sb
     .from("folios_labores")
-    .select("folio,estado,grupo,cuartel,labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado");
+    .select("folio,estado,grupo,cuartel,labor,grupo_labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado");
   if(error){ alert("Error al cargar datos: "+error.message); return false; }
   const hoy = new Date();
   FOLIOS_ALL = data.map(f=>{
@@ -292,7 +293,7 @@ async function cargarDatos(){
     }
     return {
       folio:f.folio, estado:f.estado, grupo:f.grupo, cuartel:f.cuartel, labor:f.labor,
-      encargado:f.encargado, tipo:f.tipo, trab:f.trabajadores||0, plantas:f.plantas||0,
+      grupoLabor:f.grupo_labor||"Sin clasificar", encargado:f.encargado, tipo:f.tipo, trab:f.trabajadores||0, plantas:f.plantas||0,
       costo:f.costo||0, creado:f.fecha_creado||"", dias:dias
     };
   });
@@ -390,14 +391,28 @@ function render(){
   document.getElementById("kpis").innerHTML=kpis.map(k=>
     `<div class="kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub?`<div class="sub">${k.sub}</div>`:""}</div>`).join("");
 
-  // Labores con plantas (para el selector), ordenadas por volumen
-  const porLabor={};
-  FOLIOS.forEach(f=>{ if(f.plantas>0) porLabor[f.labor]=(porLabor[f.labor]||0)+f.plantas; });
-  const labores=Object.entries(porLabor).filter(([,v])=>v>=100).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
-  if(!laborActual || !labores.includes(laborActual)) laborActual = labores[0] || null;
-  document.getElementById("laborSel").innerHTML = labores.map(l=>
-    `<button data-l="${l}" class="${l===laborActual?'on':''}">${l.charAt(0)+l.slice(1).toLowerCase()}</button>`).join("");
+  // Grupos de labor con plantas (primer selector), ordenados por volumen
+  const porGrupo={};
+  FOLIOS.forEach(f=>{ if(f.plantas>0) porGrupo[f.grupoLabor]=(porGrupo[f.grupoLabor]||0)+f.plantas; });
+  const grupos=Object.entries(porGrupo).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
+  if(!grupoLaborActual || !grupos.includes(grupoLaborActual)) grupoLaborActual = grupos[0] || null;
+  document.getElementById("grupoLaborSel").innerHTML = grupos.map(g=>
+    `<button data-g="${g}" class="${g===grupoLaborActual?'on':''}">${g}</button>`).join("");
 
+  dibujarLabores();
+}
+
+// Segundo selector: labores DENTRO del grupo elegido
+function dibujarLabores(){
+  const porLabor={};
+  FOLIOS.filter(f=>f.grupoLabor===grupoLaborActual).forEach(f=>{
+    if(f.plantas>0) porLabor[f.labor]=(porLabor[f.labor]||0)+f.plantas;
+  });
+  const labores=Object.entries(porLabor).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
+  if(!laborActual || !labores.includes(laborActual)) laborActual = labores[0] || null;
+  document.getElementById("laborSel").innerHTML = labores.length
+    ? labores.map(l=>`<button data-l="${l}" class="${l===laborActual?'on':''}">${l.charAt(0)+l.slice(1).toLowerCase()}</button>`).join("")
+    : '<span style="font-size:12px;color:var(--gris);padding:8px">Sin labores con plantas en este grupo</span>';
   drawCuarteles();
   drawFolios();
 }
@@ -426,7 +441,7 @@ function drawCuarteles(){
   }).join("") || '<p class="empty">Sin plantas de trato para esta labor.</p>';
 }
 
-let filtroActual="TODOS", busqueda="", laborActual=null;
+let filtroActual="TODOS", busqueda="", laborActual=null, grupoLaborActual=null;
 function drawFolios(){
   // total comprometido por cuartel+labor (para % si se aprueba, dentro de la MISMA labor)
   const compCuartel={};
@@ -483,10 +498,18 @@ function drawFolios(){
   }).join("");
 }
 
+document.getElementById("grupoLaborSel").addEventListener("click",e=>{
+  if(e.target.tagName!=="BUTTON")return;
+  document.querySelectorAll("#grupoLaborSel button").forEach(b=>b.classList.remove("on"));
+  e.target.classList.add("on");
+  grupoLaborActual=e.target.dataset.g;
+  laborActual=null;            // resetea la labor al cambiar de grupo
+  dibujarLabores();            // recarga las labores de ese grupo
+});
 document.getElementById("laborSel").addEventListener("click",e=>{
   if(e.target.tagName!=="BUTTON")return;
   document.querySelectorAll("#laborSel button").forEach(b=>b.classList.remove("on"));
-  e.target.classList.add("on"); laborActual=e.target.dataset.l; drawCuarteles();
+  e.target.classList.add("on"); laborActual=e.target.dataset.l; drawCuarteles(); drawFolios();
 });
 document.getElementById("filtro").addEventListener("click",e=>{
   if(e.target.tagName!=="BUTTON")return;
