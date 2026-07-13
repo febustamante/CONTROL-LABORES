@@ -720,12 +720,31 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   const foliosLil=new Set(lil.map(f=>f.folio));
   const prelim=rep.filter(f=>f.estado==='PRELIMINAR'&&!foliosLil.has(f.folio));
   const aprobRep=rep.filter(f=>f.estado==='APROBADO'&&!foliosLil.has(f.folio));
-  paraCargar={aprobados:[...lil,...aprobRep],preliminares:prelim};
+  paraCargar={aprobados:[...lil,...aprobRep],preliminares:prelim,anular:[]};
   const pAp=paraCargar.aprobados.reduce((s,f)=>s+f.plantas,0);
   const pPr=prelim.reduce((s,f)=>s+f.plantas,0);
 
+  // SINCRONIZACIÓN: solo si viene el Excel de Liliana (lista completa de aprobados),
+  // detectar los APROBADOS que están en la base pero YA NO en el Excel → se anularán.
+  let aAnular=[];
+  if(rowsLil){
+    aAnular = FOLIOS_ALL.filter(f=>f.estado==='APROBADO' && !foliosLil.has(f.folio));
+    paraCargar.anular = aAnular.map(f=>f.folio);
+  }
+
   // Si hay errores rojos, NO se permite cargar (botón bloqueado)
   const bloqueado = errores.length>0;
+  // aviso de anulación (red de seguridad): mostrar qué aprobados se van a anular
+  let anularHTML="";
+  if(aAnular.length){
+    const lista=aAnular.slice(0,50).map(f=>`<li>${f.folio} · ${f.cuartel} · ${f.labor}</li>`).join("");
+    anularHTML=`<div style="background:var(--naranja-bg);border:1px solid var(--naranja);border-radius:10px;padding:12px;margin-top:10px;font-size:12.5px">
+      <b style="color:var(--naranja)">⚠ ${aAnular.length} aprobado(s) están en la base pero YA NO en el Excel.</b><br>
+      Al confirmar, se marcarán como <b>ANULADO</b> (salen de los conteos, quedan registrados).
+      <ul style="margin:8px 0 0 18px;max-height:150px;overflow:auto">${lista}</ul>
+      ${aAnular.length>50?`<div style="color:var(--gris);margin-top:4px">…y ${aAnular.length-50} más</div>`:''}
+    </div>`;
+  }
   document.getElementById('cargaResumen').innerHTML=
     `<div style="background:${bloqueado?'var(--rojo-bg)':'var(--verde-bg)'};border:1px solid ${bloqueado?'var(--rojo)':'var(--verde)'};border-radius:10px;padding:14px;margin-top:12px;font-size:13px">
      ${rowsLil?`<b>${paraCargar.aprobados.length}</b> aprobados (reemplazan) · ${pAp.toLocaleString('es-CL')} plantas<br>`:''}
@@ -733,8 +752,9 @@ if(_analizar) _analizar.addEventListener("click",()=>{
      <span style="font-size:11px;color:var(--gris)">Los preliminares ya aprobados o anulados se respetan.</span>
      ${bloqueado
         ? `<div style="color:var(--rojo);font-weight:700;margin-top:10px">🔴 Corrige los errores en rojo antes de cargar. La carga está bloqueada.</div>`
-        : `<button id="confirmarCarga" style="width:100%;border:0;background:var(--verde);color:#fff;font-family:inherit;font-weight:700;padding:11px;border-radius:8px;cursor:pointer;margin-top:10px">✓ Confirmar y guardar en la base</button>`}
-     </div>`;
+        : `<button id="confirmarCarga" style="width:100%;border:0;background:var(--verde);color:#fff;font-family:inherit;font-weight:700;padding:11px;border-radius:8px;cursor:pointer;margin-top:10px">✓ Confirmar${aAnular.length?' (incluye anular '+aAnular.length+')':''} y guardar</button>`}
+     </div>
+     ${bloqueado?'':anularHTML}`;
   if(!bloqueado) document.getElementById('confirmarCarga').addEventListener('click',_cargar);
 });
 
@@ -756,6 +776,15 @@ async function _cargar(){
     const nuevos=paraCargar.preliminares.filter(f=>!yaExisten.has(f.folio));
     if(nuevos.length){const {error:e3}=await sb.from('folios_labores').insert(nuevos);if(e3) throw e3;}
     add('verde',`✓ ${nuevos.length} preliminares nuevos (${paraCargar.preliminares.length-nuevos.length} ya existían, respetados).`);
+    // SINCRONIZACIÓN: anular los aprobados que ya no vienen en el Excel
+    if(paraCargar.anular && paraCargar.anular.length){
+      for(let i=0;i<paraCargar.anular.length;i+=200){
+        const lote=paraCargar.anular.slice(i,i+200);
+        const {error:e4}=await sb.from('folios_labores').update({estado:'ANULADO'}).in('folio',lote);
+        if(e4) throw e4;
+      }
+      add('verde',`✓ ${paraCargar.anular.length} aprobados anulados (ya no estaban en el Excel).`);
+    }
     add('verde',`<b>Carga completa.</b> Actualizando vista...`);
     setTimeout(async()=>{ await cargarDatos();
       FOLIOS = usuarioActual.grupos ? FOLIOS_ALL.filter(f=>usuarioActual.grupos.includes((f.grupo||"").toUpperCase())) : FOLIOS_ALL;
