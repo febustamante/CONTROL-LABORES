@@ -63,6 +63,20 @@ h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burde
 .cq .leg i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
 .cq .presup{margin-top:9px;padding-top:9px;border-top:1px dashed var(--linea);font-size:11px;line-height:1.7}
 .cq .presup b{color:var(--tinta)}
+/* Panel gerencial */
+.gerGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:22px}
+.gerCard{background:var(--papel);border:1px solid var(--linea);border-radius:14px;padding:16px 18px}
+.gerCard.wide{grid-column:1/-1}
+.gerCard h3{font-family:'Fraunces',serif;font-size:15px;color:var(--burdeo);margin:0 0 12px}
+.gbar{margin-bottom:9px}
+.gbar .glbl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
+.gbar .glbl b{font-variant-numeric:tabular-nums}
+.gbar .gtrack{height:9px;background:var(--linea);border-radius:5px;overflow:hidden}
+.gbar .gfill{height:100%;border-radius:5px;background:var(--burdeo)}
+.gtabla{width:100%;border-collapse:collapse;font-size:12px}
+.gtabla th{text-align:left;color:var(--gris);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--linea);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.gtabla td{padding:6px 8px;border-bottom:1px solid var(--linea)}
+.gtabla td.num{text-align:right;font-variant-numeric:tabular-nums}
 
 /* TABLA / TARJETAS FOLIOS */
 .folios{display:flex;flex-direction:column;gap:9px;margin-top:6px}
@@ -183,6 +197,21 @@ footer b{color:var(--burdeo)}
   </div>
 
   <div class="kpis" id="kpis"></div>
+
+  <h2 style="display:flex;align-items:center;gap:10px">Panel Gerencial
+    <button id="togGer" style="border:1px solid var(--linea);background:var(--papel);color:var(--burdeo);font-family:inherit;font-size:11px;font-weight:600;padding:4px 12px;border-radius:14px;cursor:pointer">Mostrar</button>
+  </h2>
+  <div id="panelGer" style="display:none">
+    <div class="kpis" id="gerKpis"></div>
+    <div class="gerGrid">
+      <div class="gerCard"><h3>Gasto por campo</h3><div id="gerCampo"></div></div>
+      <div class="gerCard"><h3>Gasto por grupo de labor</h3><div id="gerGrupoLab"></div></div>
+      <div class="gerCard"><h3>Top 5 labores por costo</h3><div id="gerTopLab"></div></div>
+      <div class="gerCard"><h3>Top 5 cuarteles por costo</h3><div id="gerTopCua"></div></div>
+      <div class="gerCard wide"><h3>Presupuesto vs real por labor</h3><p class="hint" style="margin:0 0 10px">Consumo del presupuesto anual (precio × plantas de los cuarteles con esa labor ejecutada). Verde &lt;85% · naranja 85–100% · rojo &gt;100%.</p><div id="gerPresup"></div></div>
+      <div class="gerCard wide"><h3>Riesgo administrativo: preliminares pendientes</h3><div id="gerRiesgo"></div></div>
+    </div>
+  </div>
 
   <h2>Filtros</h2>
   <p class="hint">Los filtros se encadenan y afectan tanto el avance por cuartel como la lista de folios. El avance por cuartel usa la <b>labor</b> elegida.</p>
@@ -370,6 +399,109 @@ function alerta(f){
   return {cls:"a-ok",txt:f.dias+" días"};
 }
 
+// ====== PANEL GERENCIAL (usa FOLIOS ya filtrado por rol) ======
+document.getElementById("togGer").addEventListener("click",()=>{
+  const p=document.getElementById("panelGer");
+  const abierto=p.style.display!=="none";
+  p.style.display=abierto?"none":"block";
+  document.getElementById("togGer").textContent=abierto?"Mostrar":"Ocultar";
+});
+
+function barras(contId, pares, colorFn){
+  const max=Math.max(...pares.map(p=>p[1]),1);
+  document.getElementById(contId).innerHTML = pares.map(([k,v])=>{
+    const w=Math.round(v/max*100);
+    const color=colorFn?colorFn(k,v):'var(--burdeo)';
+    return `<div class="gbar"><div class="glbl"><span>${k}</span><b>${money(v)}</b></div>
+      <div class="gtrack"><div class="gfill" style="width:${w}%;background:${color}"></div></div></div>`;
+  }).join("") || '<p class="empty">Sin datos.</p>';
+}
+
+function drawGerencial(){
+  if(!document.getElementById("gerKpis")) return;
+  const aprob=FOLIOS.filter(f=>f.estado==="APROBADO");
+  const prelim=FOLIOS.filter(f=>f.estado==="PRELIMINAR");
+  const costoTotal=FOLIOS.reduce((s,f)=>s+f.costo,0);
+  const costoAprob=aprob.reduce((s,f)=>s+f.costo,0);
+  const costoPrelim=prelim.reduce((s,f)=>s+f.costo,0);
+  const plantasTrab=FOLIOS.reduce((s,f)=>s+f.plantas,0);
+  const costoPorPlanta=plantasTrab>0?Math.round(costoTotal/plantasTrab):0;
+
+  // Presupuesto global: labores+cuarteles ejecutados que tienen presupuesto
+  const ejecutado={};
+  FOLIOS.forEach(f=>{ const k=normLabor(f.labor)+"|"+(f.cuartel||"").toUpperCase();
+    ejecutado[k]=(ejecutado[k]||0)+f.costo; });
+  let presupGlobal=0, realGlobal=0;
+  const porLaborPresup={};
+  Object.entries(ejecutado).forEach(([k,real])=>{
+    const [labN,cua]=k.split("|");
+    const precio=PRESUPUESTO[k];
+    const plantas=PLANTAS_TOTALES[cua];
+    if(precio!=null && plantas){
+      const pres=precio*plantas;
+      presupGlobal+=pres; realGlobal+=real;
+      const lbl=(FOLIOS.find(f=>normLabor(f.labor)===labN)||{}).labor||labN;
+      if(!porLaborPresup[lbl]) porLaborPresup[lbl]={presup:0,real:0};
+      porLaborPresup[lbl].presup+=pres; porLaborPresup[lbl].real+=real;
+    }
+  });
+  const consumoGlobal=presupGlobal>0?Math.round(realGlobal/presupGlobal*100):null;
+
+  // KPIs ejecutivos
+  const kpis=[
+    {lbl:"Gasto total",val:money(costoTotal),cls:"acc-burdeo",sub:money(costoAprob)+" aprob · "+money(costoPrelim)+" prelim"},
+    {lbl:"Presupuesto consumido",val:consumoGlobal!==null?consumoGlobal+"%":"—",cls:consumoGlobal>100?"acc-prelim":"acc-aprob",sub:consumoGlobal!==null?money(realGlobal)+" de "+money(presupGlobal)+" (labores en curso)":"sin labores presupuestadas aún"},
+    {lbl:"Costo por planta",val:"$"+num(costoPorPlanta),cls:"",sub:num(plantasTrab)+" plantas trabajadas"},
+    {lbl:"Folios pendientes",val:prelim.length,cls:prelim.filter(f=>f.dias>3).length?"acc-prelim":"",sub:prelim.filter(f=>f.dias>3).length+" con más de 3 días"}
+  ];
+  document.getElementById("gerKpis").innerHTML=kpis.map(k=>
+    `<div class="kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub?`<div class="sub">${k.sub}</div>`:""}</div>`).join("");
+
+  // Gasto por campo
+  const porCampo={};
+  FOLIOS.forEach(f=>{ if(f.grupo) porCampo[f.grupo]=(porCampo[f.grupo]||0)+f.costo; });
+  barras("gerCampo", Object.entries(porCampo).sort((a,b)=>b[1]-a[1]));
+
+  // Gasto por grupo de labor
+  const porGL={};
+  FOLIOS.forEach(f=>{ porGL[f.grupoLabor]=(porGL[f.grupoLabor]||0)+f.costo; });
+  barras("gerGrupoLab", Object.entries(porGL).sort((a,b)=>b[1]-a[1]), (k)=>k==="Administrativas"?"var(--dorado)":"var(--burdeo)");
+
+  // Top 5 labores por costo
+  const porLab={};
+  FOLIOS.forEach(f=>{ porLab[f.labor]=(porLab[f.labor]||0)+f.costo; });
+  const top5L=Object.entries(porLab).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  document.getElementById("gerTopLab").innerHTML =
+    `<table class="gtabla"><tr><th>Labor</th><th style="text-align:right">Costo</th><th style="text-align:right">% total</th></tr>`+
+    top5L.map(([l,v])=>`<tr><td>${l}</td><td class="num">${money(v)}</td><td class="num">${costoTotal?Math.round(v/costoTotal*100):0}%</td></tr>`).join("")+`</table>`;
+
+  // Top 5 cuarteles por costo
+  const porCua={};
+  FOLIOS.forEach(f=>{ if(f.cuartel) porCua[f.cuartel]=(porCua[f.cuartel]||0)+f.costo; });
+  const top5C=Object.entries(porCua).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  document.getElementById("gerTopCua").innerHTML =
+    `<table class="gtabla"><tr><th>Cuartel</th><th style="text-align:right">Costo</th><th style="text-align:right">% total</th></tr>`+
+    top5C.map(([c,v])=>`<tr><td>${c}</td><td class="num">${money(v)}</td><td class="num">${costoTotal?Math.round(v/costoTotal*100):0}%</td></tr>`).join("")+`</table>`;
+
+  // Presupuesto vs real por labor
+  const filasP=Object.entries(porLaborPresup).sort((a,b)=>b[1].real-a[1].real);
+  document.getElementById("gerPresup").innerHTML = filasP.length
+    ? `<table class="gtabla"><tr><th>Labor</th><th style="text-align:right">Presupuesto</th><th style="text-align:right">Real</th><th style="text-align:right">Consumo</th></tr>`+
+      filasP.map(([l,d])=>{
+        const pc=d.presup>0?Math.round(d.real/d.presup*100):0;
+        const col=pc>100?'var(--rojo)':(pc>85?'var(--naranja)':'var(--verde)');
+        return `<tr><td>${l}</td><td class="num">${money(d.presup)}</td><td class="num">${money(d.real)}</td><td class="num" style="color:${col};font-weight:700">${pc}%${pc>100?' ⚠':''}</td></tr>`;
+      }).join("")+`</table>`
+    : '<p class="empty">Aún no hay labores presupuestadas en ejecución.</p>';
+
+  // Riesgo: preliminares antiguos
+  const riesgo=prelim.filter(f=>f.dias>3).sort((a,b)=>b.dias-a.dias).slice(0,10);
+  document.getElementById("gerRiesgo").innerHTML = riesgo.length
+    ? `<table class="gtabla"><tr><th>Folio</th><th>Cuartel</th><th>Labor</th><th>Encargado</th><th style="text-align:right">Días</th><th style="text-align:right">Costo</th></tr>`+
+      riesgo.map(f=>`<tr><td><b>${f.folio}</b></td><td>${f.cuartel}</td><td>${f.labor}</td><td>${f.encargado}</td><td class="num" style="color:${f.dias>7?'var(--rojo)':'var(--naranja)'};font-weight:700">${f.dias}</td><td class="num">${money(f.costo)}</td></tr>`).join("")+`</table>`
+    : '<p class="empty">✓ Sin preliminares antiguos. Todo al día.</p>';
+}
+
 // ====== ESTADO DE FILTROS (5 en cascada) ======
 let filtroActual="TODOS", busqueda="";
 let fGrupoLabor="", fCampo="", fVariedad="", fLabor="", fCuartel="";
@@ -405,6 +537,7 @@ function render(){
   poblarFiltros();
   drawCuarteles();
   drawFolios();
+  drawGerencial();
 }
 
 // Puebla los 5 selects: cada uno muestra solo lo que dejan los filtros anteriores
