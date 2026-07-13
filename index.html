@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Folios · Agrícola San José</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --burdeo:#7B2D2D; --burdeo-osc:#5F2020; --dorado:#C4933F; --dorado-cl:#E4C883;
+  --crema:#F5F1EA; --papel:#FBF9F5; --tinta:#2A2320; --gris:#8A8178;
+  --verde:#2E7D46; --verde-bg:#E8F3EC; --naranja:#C8621F; --naranja-bg:#FBEDE2;
+  --rojo:#B23A2E; --rojo-bg:#F8E7E4; --ambar:#B8860B; --linea:#E5DED2;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--tinta);line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* HEADER */
+header{background:linear-gradient(135deg,var(--burdeo) 0%,var(--burdeo-osc) 100%);color:#fff;padding:34px 0 30px;position:relative;overflow:hidden}
+header::after{content:"";position:absolute;right:-60px;top:-40px;width:240px;height:240px;border-radius:50%;background:rgba(196,147,63,.12)}
+.eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--dorado-cl);font-weight:600;margin-bottom:8px}
+h1{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(26px,4vw,40px);line-height:1.05;letter-spacing:-.01em}
+.rep{margin-top:10px;font-size:13px;color:#E9DFD0;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.rep b{color:#fff;font-weight:600}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--dorado);display:inline-block}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:26px 0 10px}
+.kpi{background:var(--papel);border:1px solid var(--linea);border-radius:14px;padding:16px 18px;position:relative}
+.kpi .lbl{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--gris);font-weight:600;margin-bottom:6px}
+.kpi .val{font-family:'Fraunces',serif;font-size:34px;font-weight:900;line-height:1}
+.kpi .sub{font-size:11px;color:var(--gris);margin-top:5px}
+.kpi.acc-prelim .val{color:var(--naranja)} .kpi.acc-aprob .val{color:var(--verde)}
+.kpi.acc-burdeo .val{color:var(--burdeo)} .kpi.acc-azul .val{color:#2C5F8A}
+
+/* controles */
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:22px 0 16px}
+.seg{display:inline-flex;background:var(--papel);border:1px solid var(--linea);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:9px 15px;font-family:inherit;font-size:13px;font-weight:600;color:var(--gris);cursor:pointer;transition:.15s}
+.seg button.on{background:var(--burdeo);color:#fff}
+.search{flex:1;min-width:180px;border:1px solid var(--linea);border-radius:10px;padding:9px 13px;font-family:inherit;font-size:13px;background:var(--papel);color:var(--tinta)}
+.search:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
+.count{font-size:12px;color:var(--gris);margin-left:auto}
+
+/* SECCION CUARTELES */
+h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burdeo);margin:30px 0 4px;border-bottom:2px solid var(--dorado);padding-bottom:8px;display:inline-block}
+.hint{font-size:12px;color:var(--gris);margin:8px 0 14px;font-style:italic}
+.cuarteles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:8px}
+.cq{background:var(--papel);border:1px solid var(--linea);border-radius:12px;padding:14px}
+.cq .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+.cq .nm{font-family:'Fraunces',serif;font-weight:900;font-size:19px}
+.cq .gp{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--gris);font-weight:600}
+.cq .plantas{font-size:12px;color:var(--gris);margin-bottom:9px}
+.cq .plantas b{color:var(--tinta);font-weight:700}
+.split{height:9px;border-radius:5px;background:#EDE7DC;overflow:hidden;display:flex}
+.split .ap{background:var(--verde)} .split .pr{background:var(--naranja);opacity:.85}
+.cq .leg{display:flex;gap:12px;font-size:10.5px;margin-top:7px;color:var(--gris)}
+.cq .leg i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+
+/* TABLA / TARJETAS FOLIOS */
+.folios{display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.f{background:var(--papel);border:1px solid var(--linea);border-left-width:4px;border-radius:11px;padding:13px 15px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 16px;align-items:center;transition:.15s}
+.f:hover{border-color:var(--dorado);box-shadow:0 3px 14px rgba(123,45,45,.07)}
+.f.prelim{border-left-color:var(--naranja)} .f.aprob{border-left-color:var(--verde)}
+.f .id{grid-row:1/3;display:flex;flex-direction:column;gap:5px;align-items:flex-start;min-width:104px}
+.f .folio{font-family:'Fraunces',serif;font-weight:900;font-size:20px;line-height:1}
+.badge{font-size:10px;font-weight:700;letter-spacing:.05em;padding:3px 8px;border-radius:20px;text-transform:uppercase}
+.badge.prelim{background:var(--naranja-bg);color:var(--naranja)}
+.badge.aprob{background:var(--verde-bg);color:var(--verde)}
+.tipo{font-size:10px;font-weight:600;color:var(--gris);letter-spacing:.03em}
+.f .mid{grid-row:1/3}
+.f .loc{font-size:15px;font-weight:700;margin-bottom:2px}
+.f .loc .cuartel{color:var(--burdeo)}
+.f .loc .lab{color:var(--tinta);font-weight:500}
+.f .meta{font-size:12px;color:var(--gris);display:flex;gap:14px;flex-wrap:wrap}
+.f .meta span b{color:var(--tinta);font-weight:600}
+.f .right{grid-row:1/3;text-align:right;min-width:120px}
+.f .plt{font-family:'Fraunces',serif;font-weight:900;font-size:22px;line-height:1}
+.f .plt.zero{color:var(--gris);opacity:.5}
+.f .pltlbl{font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:.04em}
+.f .costo{font-size:13px;font-weight:600;color:#2C5F8A;margin-top:5px}
+.alerta{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;margin-top:5px}
+.a-ok{background:var(--verde-bg);color:var(--verde)}
+.a-3{background:#FDF3D6;color:var(--ambar)}
+.a-5{background:var(--naranja-bg);color:var(--naranja)}
+.a-7{background:var(--rojo-bg);color:var(--rojo)}
+.empty{text-align:center;padding:50px 20px;color:var(--gris);font-style:italic}
+
+footer{margin:40px 0 30px;padding-top:18px;border-top:1px solid var(--linea);font-size:11.5px;color:var(--gris);line-height:1.7}
+footer b{color:var(--burdeo)}
+
+@media(max-width:720px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .f{grid-template-columns:1fr;gap:8px}
+  .f .id{flex-direction:row;grid-row:auto;align-items:center;min-width:0}
+  .f .mid,.f .right{grid-row:auto}
+  .f .right{text-align:left}
+  .count{width:100%;margin:0}
+}
+
+/* LOGIN */
+#login{position:fixed;inset:0;background:linear-gradient(135deg,var(--burdeo),var(--burdeo-osc));display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.card{background:var(--papel);border-radius:20px;padding:38px 34px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}
+.card .brand{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--dorado);font-weight:700;margin-bottom:10px}
+.card h1{font-family:'Fraunces',serif;font-weight:900;font-size:26px;color:var(--burdeo);margin-bottom:6px}
+.card .sub{font-size:13px;color:var(--gris);margin-bottom:24px}
+.pinbox{display:flex;gap:10px;justify-content:center;margin-bottom:8px}
+.pindot{width:14px;height:14px;border-radius:50%;background:#E5DED2;transition:.15s}
+.pindot.on{background:var(--burdeo)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
+.pad button{border:1px solid var(--linea);background:#fff;font-family:'Fraunces',serif;font-size:22px;font-weight:600;color:var(--tinta);padding:16px 0;border-radius:12px;cursor:pointer;transition:.1s}
+.pad button:hover{background:var(--dorado-cl);border-color:var(--dorado)}
+.pad button:active{transform:scale(.95)}
+.pad .wide{grid-column:span 1;font-size:15px;font-family:'Inter';color:var(--gris)}
+.err{color:var(--rojo);font-size:13px;font-weight:600;height:18px;margin-top:12px}
+.whoami{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);color:#fff;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;margin-top:12px}
+.whoami button{background:none;border:0;color:var(--dorado-cl);cursor:pointer;font-family:inherit;font-weight:700;font-size:12px;text-decoration:underline}
+#app{display:none}
+
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card">
+    <div class="brand">Agrícola San José</div>
+    <h1>Control de Folios</h1>
+    <div class="sub">Ingresa tu PIN de 4 dígitos</div>
+    <div class="pinbox">
+      <div class="pindot" id="d0"></div><div class="pindot" id="d1"></div>
+      <div class="pindot" id="d2"></div><div class="pindot" id="d3"></div>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="pad" id="pad">
+      <button>1</button><button>2</button><button>3</button>
+      <button>4</button><button>5</button><button>6</button>
+      <button>7</button><button>8</button><button>9</button>
+      <button class="wide" data-act="clear">Borrar</button><button>0</button><button class="wide" data-act="del">←</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Agrícola San José · Labores</div>
+    <h1>Control de Folios</h1>
+    <div class="rep">
+      <span>Reporte al <b id="fechaRep">—</b></span>
+      <span class="dot"></span>
+      <span>Preliminares y aprobados <b>suman</b> al avance del cuartel</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="kpis" id="kpis"></div>
+
+  <h2>Avance por cuartel</h2>
+  <p class="hint">El avance se mide <b>por labor</b>: cada labor (poda, amarra, pintar…) recorre las mismas plantas del cuartel. Elige la labor para ver su avance. Verde = aprobado · naranja = preliminar.</p>
+  <div class="seg" id="laborSel" style="margin-bottom:14px;flex-wrap:wrap"></div>
+  <div class="cuarteles" id="cuarteles"></div>
+
+  <h2>Folios para revisar</h2>
+  <div class="bar">
+    <div class="seg" id="filtro">
+      <button data-f="TODOS" class="on">Todos</button>
+      <button data-f="PRELIMINAR">Preliminares</button>
+      <button data-f="APROBADO">Aprobados</button>
+    </div>
+    <input class="search" id="buscar" placeholder="Buscar folio, cuartel, labor o encargado…">
+    <span class="count" id="conteo"></span>
+  </div>
+  <div class="folios" id="folios"></div>
+
+  <footer>
+    <b>Cómo leer las plantas:</b> solo cuentan las líneas <b>TRATO</b> (pago por unidad). Las líneas <b>DIARIO</b> son jornada/asistencia (cuartel completo, licencias, supervisión) y por eso muestran 0 plantas — es correcto, no un error.<br>
+    <b>Para actualizar:</b> abre este archivo en un editor de texto, reemplaza el bloque <code>FOLIOS</code> con los datos del reporte nuevo, y opcionalmente carga <code>PLANTAS_TOTALES</code> por cuartel. Guarda y súbelo a GitHub.
+  </footer>
+</div>
+
+</div><!-- /#app -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Plantas totales por cuartel (catálogo fijo 2026)
+const PLANTAS_TOTALES = {
+  "A01": 2116,
+  "A02": 1892,
+  "A07": 2897,
+  "A08": 3027,
+  "A09": 2533,
+  "A10": 2625,
+  "A11": 1434,
+  "C01": 3978,
+  "C02": 3729,
+  "C03": 3782,
+  "C04": 5538,
+  "C05": 5026,
+  "C06": 5640,
+  "C07": 3353,
+  "C08": 3183,
+  "C09": 3697,
+  "C10": 5682,
+  "C11": 4632,
+  "C12": 4901,
+  "C13": 4706,
+  "C14": 2498,
+  "C15": 4785,
+  "C16": 4119,
+  "C17": 4049,
+  "C18": 3615,
+  "C19": 3440,
+  "C20": 1298,
+  "C21": 1175,
+  "C22": 1954,
+  "C23": 1288,
+  "C24": 2109,
+  "C25": 2773,
+  "C26": 808,
+  "C27": 2081,
+  "C28": 1976,
+  "C29": 2653,
+  "C37": 3617,
+  "C38": 3543,
+  "C39": 2526,
+  "C40": 8379,
+  "C41": 3768,
+  "C42": 4128,
+  "C43": 305,
+  "C44": 1132,
+  "C45": 1819,
+  "C46": 1077,
+  "C50": 4735,
+  "C51": 2667,
+  "C52": 5940,
+  "C53": 5342,
+  "C54": 3833,
+  "C55": 5704,
+  "C56": 5499,
+  "P01": 5060,
+  "P02": 7864,
+  "P03": 4728,
+  "P04": 4612,
+  "P05": 3021,
+  "P07": 2060,
+  "P12": 3189,
+  "P13": 4635,
+  "P14": 3523,
+  "P15": 5180,
+  "P16": 3630,
+  "P17": 3623,
+  "P18": 3611,
+  "R01": 3332,
+  "R02": 3260,
+  "R03": 3103,
+  "R04": 2907,
+  "V01": 4374,
+  "V02": 4620,
+  "V03": 4822,
+  "V04": 4712,
+  "V05": 5523,
+  "V06": 5284,
+  "V07": 5336,
+  "V08": 4793
+};
+
+// ====== CONEXIÓN SUPABASE ======
+const SUPABASE_URL = "https://cmfvnluppvqyqwpfjrbs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_TvfWNvrb2AitDfwvW5YNww_QsR_gjD1";  // llave pública anon (solo lectura)
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let REPORTE = "cargando...";
+let FOLIOS_ALL = [];   // todos los folios traídos de Supabase
+let FOLIOS = [];       // filtrados por rol tras el login
+let usuarioActual = null;
+
+// Trae los folios desde Supabase y calcula días en preliminar
+async function cargarDatos(){
+  const { data, error } = await sb
+    .from("folios_labores")
+    .select("folio,estado,grupo,cuartel,labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado");
+  if(error){ alert("Error al cargar datos: "+error.message); return false; }
+  const hoy = new Date();
+  FOLIOS_ALL = data.map(f=>{
+    let dias = 0;
+    if(f.estado==="PRELIMINAR" && f.fecha_creado){
+      dias = Math.max(0, Math.round((hoy - new Date(f.fecha_creado))/86400000));
+    }
+    return {
+      folio:f.folio, estado:f.estado, grupo:f.grupo, cuartel:f.cuartel, labor:f.labor,
+      encargado:f.encargado, tipo:f.tipo, trab:f.trabajadores||0, plantas:f.plantas||0,
+      costo:f.costo||0, creado:f.fecha_creado||"", dias:dias
+    };
+  });
+  REPORTE = new Date().toLocaleString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  return true;
+}
+
+// ====== ACCESOS (PIN de 4 dígitos) ======
+// Cambia los PIN aquí si lo necesitas. Cada rol ve solo sus grupos de centro de costo.
+const USUARIOS = {
+  "5511": { nombre: "Sergio Rojas",   grupos: ["EL CERRILLO"] },
+  "6622": { nombre: "Rodrigo Salinas", grupos: ["RULO","NUEVO SENDERO","VALDÉS"] },
+  "9999": { nombre: "Gerencia",        grupos: null }  // null = ve todo
+};
+
+let pin = "";
+const dots = ()=>[0,1,2,3].forEach(i=>document.getElementById("d"+i).classList.toggle("on", i<pin.length));
+
+async function entrar(codigo){
+  const u = USUARIOS[codigo];
+  if(!u){
+    document.getElementById("err").textContent = "PIN incorrecto";
+    pin=""; dots();
+    setTimeout(()=>document.getElementById("err").textContent="", 1500);
+    return;
+  }
+  usuarioActual = u;
+  // mostrar "cargando" mientras trae de Supabase
+  document.getElementById("err").style.color = "var(--gris)";
+  document.getElementById("err").textContent = "Cargando datos...";
+  const ok = await cargarDatos();
+  document.getElementById("err").textContent = "";
+  document.getElementById("err").style.color = "var(--rojo)";
+  if(!ok){ pin=""; dots(); return; }
+  // filtrar folios por grupo
+  FOLIOS = u.grupos ? FOLIOS_ALL.filter(f=>u.grupos.includes((f.grupo||"").toUpperCase())) : FOLIOS_ALL;
+  document.getElementById("login").style.display="none";
+  document.getElementById("app").style.display="block";
+  // badge de identidad en el header
+  const ambito = u.grupos ? u.grupos.map(g=>g.charAt(0)+g.slice(1).toLowerCase()).join(" · ") : "Todos los campos";
+  const rep = document.querySelector(".rep");
+  if(rep && !document.querySelector(".whoami")){
+    rep.insertAdjacentHTML("beforeend",
+      `<span class="whoami">👤 ${u.nombre} — ${ambito} <button onclick="location.reload()">Salir</button></span>`);
+  }
+  render();
+}
+
+document.getElementById("pad").addEventListener("click", e=>{
+  if(e.target.tagName!=="BUTTON") return;
+  const act = e.target.dataset.act;
+  if(act==="clear"){ pin=""; }
+  else if(act==="del"){ pin=pin.slice(0,-1); }
+  else if(pin.length<4){ pin += e.target.textContent; }
+  dots();
+  if(pin.length===4) setTimeout(()=>entrar(pin), 150);
+});
+// permitir teclado
+document.addEventListener("keydown", e=>{
+  if(document.getElementById("login").style.display==="none") return;
+  if(e.key>="0"&&e.key<="9"&&pin.length<4){ pin+=e.key; dots(); if(pin.length===4) setTimeout(()=>entrar(pin),150); }
+  else if(e.key==="Backspace"){ pin=pin.slice(0,-1); dots(); }
+});
+
+// ============================================================
+
+const money = n => "$"+n.toLocaleString("es-CL");
+const num = n => n.toLocaleString("es-CL");
+
+function alerta(f){
+  if(f.estado!=="PRELIMINAR") return {cls:"a-ok",txt:"Aprobado"};
+  if(f.dias>7) return {cls:"a-7",txt:"🔴 "+f.dias+" días"};
+  if(f.dias>5) return {cls:"a-5",txt:"🟠 "+f.dias+" días"};
+  if(f.dias>3) return {cls:"a-3",txt:"🟡 "+f.dias+" días"};
+  return {cls:"a-ok",txt:f.dias+" días"};
+}
+
+function render(){
+  document.getElementById("fechaRep").textContent = REPORTE;
+
+  // KPIs
+  const tot=FOLIOS.length;
+  const prelim=FOLIOS.filter(f=>f.estado==="PRELIMINAR").length;
+  const aprob=tot-prelim;
+  const p3=FOLIOS.filter(f=>f.estado==="PRELIMINAR"&&f.dias>3).length;
+  const pAp=FOLIOS.filter(f=>f.estado==="APROBADO").reduce((s,f)=>s+f.plantas,0);
+  const pPr=FOLIOS.filter(f=>f.estado==="PRELIMINAR").reduce((s,f)=>s+f.plantas,0);
+  const costo=FOLIOS.reduce((s,f)=>s+f.costo,0);
+  const kpis=[
+    {lbl:"Total folios",val:tot,cls:""},
+    {lbl:"Preliminares",val:prelim,cls:"acc-prelim",sub:p3+" con más de 3 días"},
+    {lbl:"Aprobados",val:aprob,cls:"acc-aprob"},
+    {lbl:"Plantas comprometidas",val:num(pAp+pPr),cls:"acc-burdeo",sub:num(pAp)+" aprob · "+num(pPr)+" prelim"},
+  ];
+  document.getElementById("kpis").innerHTML=kpis.map(k=>
+    `<div class="kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub?`<div class="sub">${k.sub}</div>`:""}</div>`).join("");
+
+  // Labores con plantas (para el selector), ordenadas por volumen
+  const porLabor={};
+  FOLIOS.forEach(f=>{ if(f.plantas>0) porLabor[f.labor]=(porLabor[f.labor]||0)+f.plantas; });
+  const labores=Object.entries(porLabor).filter(([,v])=>v>=100).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
+  if(!laborActual || !labores.includes(laborActual)) laborActual = labores[0] || null;
+  document.getElementById("laborSel").innerHTML = labores.map(l=>
+    `<button data-l="${l}" class="${l===laborActual?'on':''}">${l.charAt(0)+l.slice(1).toLowerCase()}</button>`).join("");
+
+  drawCuarteles();
+  drawFolios();
+}
+
+function drawCuarteles(){
+  const cq={};
+  FOLIOS.filter(f=>f.labor===laborActual).forEach(f=>{
+    if(!cq[f.cuartel]) cq[f.cuartel]={cuartel:f.cuartel,grupo:f.grupo,ap:0,pr:0};
+    if(f.estado==="APROBADO") cq[f.cuartel].ap+=f.plantas; else cq[f.cuartel].pr+=f.plantas;
+  });
+  const arr=Object.values(cq).filter(c=>c.ap+c.pr>0).sort((a,b)=>(b.ap+b.pr)-(a.ap+a.pr));
+  document.getElementById("cuarteles").innerHTML=arr.map(c=>{
+    const comp=c.ap+c.pr;
+    const total=PLANTAS_TOTALES[c.cuartel];
+    let barMax = total || comp;
+    const apW=Math.min(100,c.ap/barMax*100), prW=Math.min(100-apW,c.pr/barMax*100);
+    const pct = total?Math.round(comp/total*100):null;
+    let pctTxt = total ? `<b>${pct}%</b> de ${num(total)}` : `<b>${num(comp)}</b> comprom. · total sin cargar`;
+    if(pct!==null && pct>105) pctTxt += ' <span style="color:var(--rojo);font-weight:700">⚠ excede</span>';
+    return `<div class="cq">
+      <div class="top"><span class="nm">${c.cuartel}</span><span class="gp">${c.grupo}</span></div>
+      <div class="plantas">${pctTxt}</div>
+      <div class="split"><div class="ap" style="width:${apW}%"></div><div class="pr" style="width:${prW}%"></div></div>
+      <div class="leg"><span><i style="background:var(--verde)"></i>${num(c.ap)} aprob</span><span><i style="background:var(--naranja)"></i>${num(c.pr)} prelim</span></div>
+    </div>`;
+  }).join("") || '<p class="empty">Sin plantas de trato para esta labor.</p>';
+}
+
+let filtroActual="TODOS", busqueda="", laborActual=null;
+function drawFolios(){
+  // total comprometido por cuartel+labor (para % si se aprueba, dentro de la MISMA labor)
+  const compCuartel={};
+  FOLIOS.forEach(f=>{const k=f.cuartel+"|"+f.labor;compCuartel[k]=(compCuartel[k]||0)+f.plantas;});
+
+  let list=FOLIOS.slice();
+  if(filtroActual!=="TODOS") list=list.filter(f=>f.estado===filtroActual);
+  if(busqueda){const q=busqueda.toLowerCase();
+    list=list.filter(f=>(f.folio+f.cuartel+f.labor+f.encargado+f.grupo).toLowerCase().includes(q));}
+  // preliminares primero, luego por cuartel
+  list.sort((a,b)=>{
+    if(a.estado!==b.estado) return a.estado==="PRELIMINAR"?-1:1;
+    return a.cuartel<b.cuartel?-1:1;
+  });
+
+  document.getElementById("conteo").textContent=list.length+" folio"+(list.length!==1?"s":"");
+  const cont=document.getElementById("folios");
+  if(!list.length){cont.innerHTML='<p class="empty">No hay folios que coincidan.</p>';return;}
+
+  cont.innerHTML=list.map(f=>{
+    const a=alerta(f);
+    const isPr=f.estado==="PRELIMINAR";
+    const total=PLANTAS_TOTALES[f.cuartel];
+    let pctLine="";
+    if(total && f.plantas>0){
+      const comp=compCuartel[f.cuartel+"|"+f.labor]||0;
+      const actual=Math.round((comp-(isPr?f.plantas:0))/total*100);
+      const conEste=Math.round(comp/total*100);
+      pctLine = isPr
+        ? `<span>${f.labor.toLowerCase()} en ${f.cuartel}: <b>${actual}%</b> → si apruebas <b>${conEste}%</b></span>`
+        : `<span>${f.labor.toLowerCase()} en ${f.cuartel} al <b>${conEste}%</b></span>`;
+    }
+    return `<div class="f ${isPr?'prelim':'aprob'}">
+      <div class="id">
+        <span class="folio">${f.folio}</span>
+        <span class="badge ${isPr?'prelim':'aprob'}">${f.estado}</span>
+        <span class="tipo">${f.tipo}</span>
+      </div>
+      <div class="mid">
+        <div class="loc"><span class="cuartel">${f.cuartel}</span> · <span class="lab">${f.labor}</span></div>
+        <div class="meta">
+          <span>👤 <b>${f.trab}</b> trab.</span>
+          <span>📋 ${f.encargado}</span>
+          ${pctLine}
+        </div>
+      </div>
+      <div class="right">
+        <div class="plt ${f.plantas===0?'zero':''}">${num(f.plantas)}</div>
+        <div class="pltlbl">plantas ${f.tipo==='DIARIO'?'(jornada)':''}</div>
+        ${f.costo>0?`<div class="costo">${money(f.costo)}</div>`:''}
+        <div><span class="alerta ${a.cls}">${a.txt}</span></div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+document.getElementById("laborSel").addEventListener("click",e=>{
+  if(e.target.tagName!=="BUTTON")return;
+  document.querySelectorAll("#laborSel button").forEach(b=>b.classList.remove("on"));
+  e.target.classList.add("on"); laborActual=e.target.dataset.l; drawCuarteles();
+});
+document.getElementById("filtro").addEventListener("click",e=>{
+  if(e.target.tagName!=="BUTTON")return;
+  document.querySelectorAll("#filtro button").forEach(b=>b.classList.remove("on"));
+  e.target.classList.add("on"); filtroActual=e.target.dataset.f; drawFolios();
+});
+document.getElementById("buscar").addEventListener("input",e=>{busqueda=e.target.value;drawFolios();});
+
+// render() se llama tras ingresar el PIN
+</script>
+</body>
+</html>
