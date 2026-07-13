@@ -616,7 +616,7 @@ function _bind(dropId,inputId,sId,cb){
   const handle=file=>{const r=new FileReader();r.onload=e=>{try{
     const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
     cb(wb);drop.style.borderStyle='solid';drop.style.borderColor='var(--verde)';s.textContent='✓ '+file.name;s.style.color='var(--verde)';
-    document.getElementById('analizar').disabled=!(wbLil&&wbRep);
+    document.getElementById('analizar').disabled=!(wbLil||wbRep);
   }catch(err){s.textContent='Error: '+err.message;}};r.readAsArrayBuffer(file);};
   inp.addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0]);});
   ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.background='var(--dorado-cl)';}));
@@ -637,8 +637,10 @@ function _procRep(rows){const g={};rows.forEach(r=>{const folio=_S(r['Número de
   const trato=_up(r['Personal#Tipo Trabajo'])==='TRATO';
   if(!g[folio])g[folio]={folio,estado:_up(r['Estado Folio']),grupo:_S(r['Grupo Centro Costo']),cuartel:_S(r['Centro Costo']),
     labor:_S(r['Labor']),encargado:_S(r['Encargado SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['Fecha de Creación']};
-  const o=g[folio];if(trato){o.trato=true;o.plantas+=_N(r['Personal#UnidadesTrabajadasAux']);}
-  o.costo+=_N(r['TotalContratista']);o.ruts.add(_S(r['Personal#Rut Empleado']));});
+  const o=g[folio];const uds=_N(r['Personal#UnidadesTrabajadasAux']);if(trato){o.trato=true;o.plantas+=uds;}
+  // En el reporte, TotalContratista es el valor POR PLANTA (ya con ×1,5).
+  // El costo de la línea = valor por planta × unidades trabajadas de esa persona.
+  o.costo+=_N(r['TotalContratista'])*uds;o.ruts.add(_S(r['Personal#Rut Empleado']));});
   return Object.values(g).map(o=>_fila(o,o.estado));}
 function _fila(o,estado){return {folio:o.folio,estado,grupo:o.grupo,cuartel:o.cuartel,labor:o.labor,
   grupo_labor:_grupoLab(o.labor),encargado:o.encargado,tipo:o.trato?'TRATO':'DIARIO',
@@ -692,10 +694,12 @@ if(_analizar) _analizar.addEventListener("click",()=>{
 
   const colsLil={folio:'FOLIO',cuartel:'CENTRO COSTO',labor:'LABOR',grupo:'GRUPO CENTRO COSTO',fecha:'FECHA'};
   const colsRep={folio:'Número de registro',cuartel:'Centro Costo',labor:'Labor',grupo:'Grupo Centro Costo',fecha:'Fecha de Creación'};
-  const rowsLil=_sheet(wbLil,['Datos']);
-  const rowsRep=_sheet(wbRep,['Data']);
-  validar(rowsLil,'Liliana',colsLil);
-  validar(rowsRep,'Reporte',colsRep);
+  const rowsLil = wbLil ? _sheet(wbLil,['Datos']) : null;
+  const rowsRep = wbRep ? _sheet(wbRep,['Data']) : null;
+  if(rowsLil) validar(rowsLil,'Liliana',colsLil);
+  if(rowsRep) validar(rowsRep,'Reporte',colsRep);
+  if(!rowsLil) add('gris','• Sin archivo de Liliana: no se cargarán aprobados en esta carga.');
+  if(!rowsRep) add('gris','• Sin archivo de reporte: no se agregarán preliminares en esta carga.');
 
   // mostrar errores y avisos
   if(errores.length){
@@ -710,9 +714,9 @@ if(_analizar) _analizar.addEventListener("click",()=>{
     add('verde','✓ Sin errores ni avisos. Datos limpios.');
   }
 
-  // procesar (para el resumen)
-  const lil=_procLil(rowsLil);
-  const rep=_procRep(rowsRep);
+  // procesar (para el resumen) — solo lo que esté presente
+  const lil = rowsLil ? _procLil(rowsLil) : [];
+  const rep = rowsRep ? _procRep(rowsRep) : [];
   const foliosLil=new Set(lil.map(f=>f.folio));
   const prelim=rep.filter(f=>f.estado==='PRELIMINAR'&&!foliosLil.has(f.folio));
   const aprobRep=rep.filter(f=>f.estado==='APROBADO'&&!foliosLil.has(f.folio));
@@ -724,8 +728,8 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   const bloqueado = errores.length>0;
   document.getElementById('cargaResumen').innerHTML=
     `<div style="background:${bloqueado?'var(--rojo-bg)':'var(--verde-bg)'};border:1px solid ${bloqueado?'var(--rojo)':'var(--verde)'};border-radius:10px;padding:14px;margin-top:12px;font-size:13px">
-     <b>${paraCargar.aprobados.length}</b> aprobados (reemplazan) · ${pAp.toLocaleString('es-CL')} plantas<br>
-     <b>${prelim.length}</b> preliminares del reporte · ${pPr.toLocaleString('es-CL')} plantas<br>
+     ${rowsLil?`<b>${paraCargar.aprobados.length}</b> aprobados (reemplazan) · ${pAp.toLocaleString('es-CL')} plantas<br>`:''}
+     ${rowsRep?`<b>${prelim.length}</b> preliminares del reporte · ${pPr.toLocaleString('es-CL')} plantas<br>`:''}
      <span style="font-size:11px;color:var(--gris)">Los preliminares ya aprobados o anulados se respetan.</span>
      ${bloqueado
         ? `<div style="color:var(--rojo);font-weight:700;margin-top:10px">🔴 Corrige los errores en rojo antes de cargar. La carga está bloqueada.</div>`
