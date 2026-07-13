@@ -158,6 +158,26 @@ footer b{color:var(--burdeo)}
 
 <div class="wrap">
 
+  <div id="zonaCarga" style="display:none;background:#FBF5EC;border:1px solid var(--dorado);border-radius:14px;padding:18px 20px;margin-bottom:20px">
+    <h2 style="border:0;margin:0 0 4px;font-size:17px">Cargar folios del día <span style="font-size:12px;color:var(--gris);font-weight:400">(solo admin)</span></h2>
+    <p class="hint" style="margin:0 0 12px">Arrastra los dos Excel. Se calcula todo y se muestra un resumen antes de guardar. Los preliminares ya aprobados y los anulados se respetan.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <label class="cargaDrop" id="dropLil" style="flex:1;min-width:200px;border:2px dashed var(--dorado);border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fff">
+        <div style="font-weight:600;font-size:13px">📗 Aprobados (Liliana)</div>
+        <div style="font-size:11px;color:var(--gris);margin-top:3px" id="sLil">Ningún archivo</div>
+        <input type="file" id="fLil" accept=".xlsx,.xls" style="display:none">
+      </label>
+      <label class="cargaDrop" id="dropRep" style="flex:1;min-width:200px;border:2px dashed var(--dorado);border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fff">
+        <div style="font-weight:600;font-size:13px">📘 Reporte del día</div>
+        <div style="font-size:11px;color:var(--gris);margin-top:3px" id="sRep">Ningún archivo</div>
+        <input type="file" id="fRep" accept=".xlsx,.xls" style="display:none">
+      </label>
+    </div>
+    <button id="analizar" disabled style="width:100%;border:0;background:var(--burdeo);color:#fff;font-family:inherit;font-weight:700;font-size:14px;padding:12px;border-radius:10px;cursor:pointer;margin-top:12px">Analizar los dos archivos</button>
+    <div id="cargaResumen"></div>
+    <div id="cargaLog" style="margin-top:10px;font-size:12.5px"></div>
+  </div>
+
   <div class="kpis" id="kpis"></div>
 
   <h2>Avance por cuartel</h2>
@@ -179,13 +199,14 @@ footer b{color:var(--burdeo)}
   <div class="folios" id="folios"></div>
 
   <footer>
-    <b>Cómo leer las plantas:</b> solo cuentan las líneas <b>TRATO</b> (pago por unidad). Las líneas <b>DIARIO</b> son jornada/asistencia (cuartel completo, licencias, supervisión) y por eso muestran 0 plantas — es correcto, no un error.<br>
-    <b>Para actualizar:</b> abre este archivo en un editor de texto, reemplaza el bloque <code>FOLIOS</code> con los datos del reporte nuevo, y opcionalmente carga <code>PLANTAS_TOTALES</code> por cuartel. Guarda y súbelo a GitHub.
+    <b>Cómo leer las plantas:</b> solo cuentan las líneas <b>TRATO</b> (pago por unidad). Las líneas <b>DIARIO</b> son jornada/asistencia y por eso muestran 0 plantas — es correcto.<br>
+    <b>Datos en vivo desde Supabase.</b> El admin carga los folios del día con el PIN de administrador; los demás solo consultan.
   </footer>
 </div>
 
 </div><!-- /#app -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // Plantas totales por cuartel (catálogo fijo 2026)
 const PLANTAS_TOTALES = {
@@ -286,17 +307,19 @@ async function cargarDatos(){
     .select("folio,estado,grupo,cuartel,labor,grupo_labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado");
   if(error){ alert("Error al cargar datos: "+error.message); return false; }
   const hoy = new Date();
-  FOLIOS_ALL = data.map(f=>{
-    let dias = 0;
-    if(f.estado==="PRELIMINAR" && f.fecha_creado){
-      dias = Math.max(0, Math.round((hoy - new Date(f.fecha_creado))/86400000));
-    }
-    return {
-      folio:f.folio, estado:f.estado, grupo:f.grupo, cuartel:f.cuartel, labor:f.labor,
-      grupoLabor:f.grupo_labor||"Sin clasificar", encargado:f.encargado, tipo:f.tipo, trab:f.trabajadores||0, plantas:f.plantas||0,
-      costo:f.costo||0, creado:f.fecha_creado||"", dias:dias
-    };
-  });
+  FOLIOS_ALL = data
+    .filter(f=>f.estado!=="ANULADO")   // los anulados quedan fuera de todo
+    .map(f=>{
+      let dias = 0;
+      if(f.estado==="PRELIMINAR" && f.fecha_creado){
+        dias = Math.max(0, Math.round((hoy - new Date(f.fecha_creado))/86400000));
+      }
+      return {
+        folio:f.folio, estado:f.estado, grupo:f.grupo, cuartel:f.cuartel, labor:f.labor,
+        grupoLabor:f.grupo_labor||"Sin clasificar", encargado:f.encargado, tipo:f.tipo, trab:f.trabajadores||0, plantas:f.plantas||0,
+        costo:f.costo||0, creado:f.fecha_creado||"", dias:dias
+      };
+    });
   REPORTE = new Date().toLocaleString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
   return true;
 }
@@ -304,9 +327,10 @@ async function cargarDatos(){
 // ====== ACCESOS (PIN de 4 dígitos) ======
 // Cambia los PIN aquí si lo necesitas. Cada rol ve solo sus grupos de centro de costo.
 const USUARIOS = {
-  "5511": { nombre: "Sergio Rojas",   grupos: ["EL CERRILLO"] },
-  "6622": { nombre: "Rodrigo Salinas", grupos: ["RULO","NUEVO SENDERO","VALDÉS"] },
-  "9999": { nombre: "Gerencia",        grupos: null }  // null = ve todo
+  "5511": { nombre: "Sergio Rojas",    grupos: ["EL CERRILLO"], admin:false },
+  "6622": { nombre: "Rodrigo Salinas", grupos: ["RULO","NUEVO SENDERO","VALDÉS"], admin:false },
+  "9999": { nombre: "Gerencia",        grupos: null, admin:false },  // null = ve todo
+  "7788": { nombre: "Admin",           grupos: null, admin:true }    // puede cargar y anular
 };
 
 let pin = "";
@@ -330,8 +354,10 @@ async function entrar(codigo){
   if(!ok){ pin=""; dots(); return; }
   // filtrar folios por grupo
   FOLIOS = u.grupos ? FOLIOS_ALL.filter(f=>u.grupos.includes((f.grupo||"").toUpperCase())) : FOLIOS_ALL;
+  window.ES_ADMIN = !!u.admin;
   document.getElementById("login").style.display="none";
   document.getElementById("app").style.display="block";
+  if(window.ES_ADMIN){ document.getElementById("zonaCarga").style.display="block"; }
   // badge de identidad en el header
   const ambito = u.grupos ? u.grupos.map(g=>g.charAt(0)+g.slice(1).toLowerCase()).join(" · ") : "Todos los campos";
   const rep = document.querySelector(".rep");
@@ -493,9 +519,31 @@ function drawFolios(){
         <div class="pltlbl">plantas ${f.tipo==='DIARIO'?'(jornada)':''}</div>
         ${f.costo>0?`<div class="costo">${money(f.costo)}</div>`:''}
         <div><span class="alerta ${a.cls}">${a.txt}</span></div>
+        ${(window.ES_ADMIN && isPr)?`<div><button class="btnAnular" data-folio="${f.folio}" style="margin-top:6px;border:1px solid var(--rojo);background:#fff;color:var(--rojo);font-family:inherit;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;cursor:pointer">Anular</button></div>`:''}
       </div>
     </div>`;
   }).join("");
+
+  // listeners de los botones anular (solo existen si es admin)
+  document.querySelectorAll(".btnAnular").forEach(b=>{
+    b.addEventListener("click", ()=>anularFolio(b.dataset.folio));
+  });
+}
+
+async function anularFolio(folio){
+  if(!window.ES_ADMIN) return;
+  if(!confirm(`¿Anular el folio ${folio}? Quedará registrado como ANULADO y saldrá de los conteos. Esto no se puede deshacer desde aquí.`)) return;
+  try{
+    const {error}=await sb.from("folios_labores").update({estado:"ANULADO"}).eq("folio",folio);
+    if(error) throw error;
+    // quitarlo de la vista al instante
+    FOLIOS_ALL = FOLIOS_ALL.filter(f=>f.folio!==folio);
+    FOLIOS = FOLIOS.filter(f=>f.folio!==folio);
+    render();
+    alert(`Folio ${folio} anulado.`);
+  }catch(err){
+    alert("No se pudo anular: "+(err.message||err));
+  }
 }
 
 document.getElementById("grupoLaborSel").addEventListener("click",e=>{
@@ -517,6 +565,117 @@ document.getElementById("filtro").addEventListener("click",e=>{
   e.target.classList.add("on"); filtroActual=e.target.dataset.f; drawFolios();
 });
 document.getElementById("buscar").addEventListener("input",e=>{busqueda=e.target.value;drawFolios();});
+
+// ============================================================
+//  ZONA DE CARGA (solo admin) — leer Excel y escribir a Supabase
+// ============================================================
+let wbLil=null, wbRep=null, paraCargar=null;
+const _S=v=>v==null?'':String(v).trim();
+const _N=v=>{const x=parseFloat(v);return isNaN(x)?0:x;};
+const _up=s=>_S(s).toUpperCase();
+const GRUPO_LABOR={
+  'PODA':'Campo','PINTAR CORTES DE PODA':'Campo','LIMP CANALES Y ACEQUIAS':'Campo','ACARREO DE MATERIALES':'Campo',
+  'REPARAR Y TENSAR ALAMBRES':'Campo','RASTRILLAR SARMIENTO':'Campo','CASETERO':'Campo','RIEGO':'Campo','RIEGOS':'Campo',
+  'APLICACION DE GUANO':'Campo','HACER CAMELLONES':'Campo','ELIMINAR DESECHOS Y ESCOMBROS':'Campo','PULVERIZ. NEBULIZADOR':'Campo',
+  'MANTENCION TECHOS':'Campo','REPARACION MAQ. E IMPLEM.':'Campo','PREPARAR MEZCLAS':'Campo','APLIC. HERBICIDA BARRA':'Campo',
+  'RASTRAJES':'Campo','PONER BANDA BURRO':'Campo','TRASLADO DE MAQUINARIA':'Campo','PROTECCION CONEJOS':'Campo',
+  'AMARRA':'Campo','ARMAR Y DESARMAR ESTRUCTURA':'Campo','HACER Y TAPAR CALICATAS':'Campo','MANTENCION DE CERCOS':'Campo',
+  'MARCAR Y CORTAR PLANTAS ENFERMAS':'Campo','MEJORAR CAMINOS':'Campo','PONER PASTA BURRO':'Campo','SACAR MALEZAS A MANO':'Campo',
+  'SACAR PLASTICOS TECHOS':'Campo','MANTENCION MAQ. E IMPLEM.':'Campo','MANTENCIONES GENERALES':'Campo','REPARACIONES MENORES':'Campo',
+  'CARGA O DESCARGA':'Campo',
+  'PERMISO (AUTORIZACION)':'Administrativas','LABOR ADMINISTRATIVA':'Administrativas','SUPERVISIÓN LABOR':'Administrativas',
+  'VACACIONES':'Administrativas','LICENCIAS MEDICAS':'Administrativas','ACHS':'Administrativas','FERIADO LEGAL':'Administrativas',
+  'LLUVIA':'Administrativas','JEFE DE CAMPO':'Administrativas',
+  'ORDEN Y ASEO':'Generales',
+  'MANEJO YALE':'Cosecha - Packing','BODEGUERO':'Cosecha - Packing','ORDENADOR CAJAS VACIAS':'Cosecha - Packing'
+};
+const _grupoLab=lab=>GRUPO_LABOR[_up(lab)]||'Sin clasificar';
+function _fmt(d){ if(!(d instanceof Date)||isNaN(d)){ const p=new Date(d); if(isNaN(p))return null; d=p; }
+  const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+function _sheet(wb,names){ for(const n of names){ if(wb.Sheets[n]) return XLSX.utils.sheet_to_json(wb.Sheets[n],{defval:null}); }
+  let best=null,max=0; wb.SheetNames.forEach(n=>{const r=XLSX.utils.sheet_to_json(wb.Sheets[n],{defval:null});if(r.length>max){max=r.length;best=r;}}); return best; }
+
+function _bind(dropId,inputId,sId,cb){
+  const drop=document.getElementById(dropId),inp=document.getElementById(inputId),s=document.getElementById(sId);
+  if(!drop) return;
+  const handle=file=>{const r=new FileReader();r.onload=e=>{try{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+    cb(wb);drop.style.borderStyle='solid';drop.style.borderColor='var(--verde)';s.textContent='✓ '+file.name;s.style.color='var(--verde)';
+    document.getElementById('analizar').disabled=!(wbLil&&wbRep);
+  }catch(err){s.textContent='Error: '+err.message;}};r.readAsArrayBuffer(file);};
+  inp.addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0]);});
+  ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.background='var(--dorado-cl)';}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.background='#fff';}));
+  drop.addEventListener('drop',e=>{if(e.dataTransfer.files[0])handle(e.dataTransfer.files[0]);});
+}
+_bind('dropLil','fLil','sLil',wb=>wbLil=wb);
+_bind('dropRep','fRep','sRep',wb=>wbRep=wb);
+
+function _procLil(rows){const g={};rows.forEach(r=>{const folio=_S(r['FOLIO']);if(!folio)return;
+  const trato=_up(r['TRATO/DIA'])==='TRATO';
+  if(!g[folio])g[folio]={folio,grupo:_S(r['GRUPO CENTRO COSTO']),cuartel:_S(r['CENTRO COSTO']),labor:_S(r['LABOR']),
+    encargado:_S(r['ENCARGADO SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['FECHA']};
+  const o=g[folio];if(trato){o.trato=true;o.plantas+=_N(r['N PLANTAS']);}
+  o.costo+=_N(r['TOTAL A PAGAR']);o.ruts.add(_S(r['PERSONAL#RUT EMPLEADO']));});
+  return Object.values(g).map(o=>_fila(o,'APROBADO'));}
+function _procRep(rows){const g={};rows.forEach(r=>{const folio=_S(r['Número de registro']);if(!folio)return;
+  const trato=_up(r['Personal#Tipo Trabajo'])==='TRATO';
+  if(!g[folio])g[folio]={folio,estado:_up(r['Estado Folio']),grupo:_S(r['Grupo Centro Costo']),cuartel:_S(r['Centro Costo']),
+    labor:_S(r['Labor']),encargado:_S(r['Encargado SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['Fecha de Creación']};
+  const o=g[folio];if(trato){o.trato=true;o.plantas+=_N(r['Personal#UnidadesTrabajadasAux']);}
+  o.costo+=_N(r['TotalContratista']);o.ruts.add(_S(r['Personal#Rut Empleado']));});
+  return Object.values(g).map(o=>_fila(o,o.estado));}
+function _fila(o,estado){return {folio:o.folio,estado,grupo:o.grupo,cuartel:o.cuartel,labor:o.labor,
+  grupo_labor:_grupoLab(o.labor),encargado:o.encargado,tipo:o.trato?'TRATO':'DIARIO',
+  trabajadores:o.ruts.size,plantas:Math.round(o.plantas),costo:Math.round(o.costo),fecha_creado:_fmt(o.fecha)};}
+
+const _analizar=document.getElementById("analizar");
+if(_analizar) _analizar.addEventListener("click",()=>{
+  const log=document.getElementById('cargaLog');log.innerHTML='';
+  const add=(c,h)=>log.insertAdjacentHTML('beforeend',`<div style="padding:4px 0;color:var(--${c})">${h}</div>`);
+  const lil=_procLil(_sheet(wbLil,['Datos']));
+  const rep=_procRep(_sheet(wbRep,['Data']));
+  const foliosLil=new Set(lil.map(f=>f.folio));
+  const prelim=rep.filter(f=>f.estado==='PRELIMINAR'&&!foliosLil.has(f.folio));
+  const aprobRep=rep.filter(f=>f.estado==='APROBADO'&&!foliosLil.has(f.folio));
+  paraCargar={aprobados:[...lil,...aprobRep],preliminares:prelim};
+  const pAp=paraCargar.aprobados.reduce((s,f)=>s+f.plantas,0);
+  const pPr=prelim.reduce((s,f)=>s+f.plantas,0);
+  add('gris',`Liliana: <b>${lil.length}</b> aprobados · Reporte: <b>${rep.length}</b> folios.`);
+  document.getElementById('cargaResumen').innerHTML=
+    `<div style="background:var(--verde-bg);border:1px solid var(--verde);border-radius:10px;padding:14px;margin-top:12px;font-size:13px">
+     <b>${paraCargar.aprobados.length}</b> aprobados (reemplazan) · ${pAp.toLocaleString('es-CL')} plantas<br>
+     <b>${prelim.length}</b> preliminares del reporte · ${pPr.toLocaleString('es-CL')} plantas<br>
+     <span style="font-size:11px;color:var(--gris)">Los preliminares ya aprobados o anulados se respetan (no se duplican ni reviven).</span>
+     <button id="confirmarCarga" style="width:100%;border:0;background:var(--verde);color:#fff;font-family:inherit;font-weight:700;padding:11px;border-radius:8px;cursor:pointer;margin-top:10px">✓ Confirmar y guardar en la base</button></div>`;
+  document.getElementById('confirmarCarga').addEventListener('click',_cargar);
+});
+
+async function _cargar(){
+  const log=document.getElementById('cargaLog');
+  const add=(c,h)=>log.insertAdjacentHTML('beforeend',`<div style="padding:4px 0;color:var(--${c})">${h}</div>`);
+  const btn=document.getElementById('confirmarCarga');btn.disabled=true;btn.textContent='Guardando...';
+  try{
+    const aprob=paraCargar.aprobados.map(f=>({...f,fecha_aprobado:f.fecha_creado}));
+    for(let i=0;i<aprob.length;i+=500){
+      const {error}=await sb.from('folios_labores').upsert(aprob.slice(i,i+500),{onConflict:'folio'});
+      if(error) throw error;
+    }
+    add('verde',`✓ ${aprob.length} aprobados cargados/actualizados.`);
+    // preliminares nuevos: solo si NO existen (respeta aprobados Y anulados)
+    const {data:exist,error:e2}=await sb.from('folios_labores').select('folio');
+    if(e2) throw e2;
+    const yaExisten=new Set((exist||[]).map(r=>r.folio));
+    const nuevos=paraCargar.preliminares.filter(f=>!yaExisten.has(f.folio));
+    if(nuevos.length){const {error:e3}=await sb.from('folios_labores').insert(nuevos);if(e3) throw e3;}
+    add('verde',`✓ ${nuevos.length} preliminares nuevos (${paraCargar.preliminares.length-nuevos.length} ya existían, respetados).`);
+    add('verde',`<b>Carga completa.</b> Actualizando vista...`);
+    setTimeout(async()=>{ await cargarDatos();
+      FOLIOS = usuarioActual.grupos ? FOLIOS_ALL.filter(f=>usuarioActual.grupos.includes((f.grupo||"").toUpperCase())) : FOLIOS_ALL;
+      render(); btn.textContent='✓ Cargado';
+    },800);
+  }catch(err){ add('rojo',`Error: ${err.message||err}`); btn.disabled=false; btn.textContent='Reintentar'; }
+}
 
 // render() se llama tras ingresar el PIN
 </script>
