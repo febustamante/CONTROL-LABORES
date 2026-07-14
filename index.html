@@ -247,7 +247,11 @@ footer b{color:var(--burdeo)}
     </div>
   </aside>
 
-  <div id="alertaExcedidos" style="margin-bottom:14px"></div>
+  <div id="resumenNoPresup" style="margin-bottom:14px"></div>
+  <div style="margin-bottom:14px">
+    <button id="btnExcedidos" style="border:1px solid var(--linea);background:#fff;color:var(--tinta);font-family:inherit;font-size:13px;font-weight:600;padding:9px 16px;border-radius:10px;cursor:pointer">Ver excedidos</button>
+    <div id="alertaExcedidos" style="display:none;margin-top:12px"></div>
+  </div>
 
   <div class="kpis" id="kpis"></div>
 
@@ -679,9 +683,45 @@ function render(){
     `<div class="kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub?`<div class="sub">${k.sub}</div>`:""}</div>`).join("");
   poblarFiltros();
   drawExcedidos();
+  drawResumenNoPresup();
   drawCuarteles();
   drawFolios();
   drawGerencial();
+}
+
+// Resumen que aparece SOLO al elegir "No presupuestadas": labores sin presupuesto + plata,
+// y si se elige una labor, los cuarteles donde se está trabajando.
+function drawResumenNoPresup(){
+  const cont=document.getElementById("resumenNoPresup");
+  if(!cont) return;
+  if(fPresup!=="no"){ cont.innerHTML=""; return; }
+  // universo: folios del rol, no presupuestados, respetando campo/variedad si están puestos
+  const D=aplicarCascada(FOLIOS,5).filter(f=>!folioPresupuestado(f));
+  if(!D.length){ cont.innerHTML=`<div class="gerCard"><h3>Labores sin presupuesto</h3><p class="empty">No hay labores sin presupuesto con los filtros elegidos.</p></div>`; return; }
+
+  if(!fLabor){
+    // lista de labores no presupuestadas con su plata gastada
+    const porLab={};
+    D.forEach(f=>{ porLab[f.labor]=(porLab[f.labor]||0)+f.costo; });
+    const arr=Object.entries(porLab).sort((a,b)=>b[1]-a[1]);
+    const tot=arr.reduce((s,[,v])=>s+v,0);
+    cont.innerHTML=`<div class="gerCard"><h3>Labores sin presupuesto — gasto</h3>
+      <p class="hint" style="margin:0 0 10px">Trabajo realizado sin presupuesto asignado. Elige una labor en el filtro para ver en qué cuarteles se está haciendo. Total: <b>${money(tot)}</b></p>
+      <table class="gtabla"><tr><th>Labor</th><th style="text-align:right">Gastado</th><th style="text-align:right">% del total</th></tr>
+      ${arr.map(([l,v])=>`<tr><td>${l}</td><td class="num">${money(v)}</td><td class="num">${tot?Math.round(v/tot*100):0}%</td></tr>`).join("")}
+      </table></div>`;
+  } else {
+    // cuarteles donde se trabaja esa labor (no presupuestada)
+    const porCua={};
+    D.forEach(f=>{ if(!porCua[f.cuartel]) porCua[f.cuartel]={plantas:0,costo:0}; porCua[f.cuartel].plantas+=f.plantas; porCua[f.cuartel].costo+=f.costo; });
+    const arr=Object.entries(porCua).sort((a,b)=>b[1].costo-a[1].costo);
+    const totC=arr.reduce((s,[,v])=>s+v.costo,0);
+    cont.innerHTML=`<div class="gerCard"><h3>${fLabor} (sin presupuesto) — cuarteles en trabajo</h3>
+      <p class="hint" style="margin:0 0 10px">Cuarteles donde se está haciendo esta labor sin presupuesto. Total: <b>${money(totC)}</b></p>
+      <table class="gtabla"><tr><th>Cuartel</th><th style="text-align:right">Plantas</th><th style="text-align:right">Gastado</th></tr>
+      ${arr.map(([c,v])=>`<tr><td>${c}</td><td class="num">${num(v.plantas)}</td><td class="num">${money(v.costo)}</td></tr>`).join("")}
+      </table></div>`;
+  }
 }
 
 // Sección de EXCEDIDOS: recorre TODO FOLIOS (respeta solo el rol, ignora filtros del sidebar)
@@ -709,6 +749,13 @@ function drawExcedidos(){
     if(total){ const pc=Math.round(d.pl/total*100);
       if(pc>105) excPlantas.push({cuartel:d.cuartel,labor:d.labor,total,pl:d.pl,pc}); } });
   excPlantas.sort((a,b)=>b.pc-a.pc);
+
+  // actualizar el texto del botón con el contador
+  const btn=document.getElementById("btnExcedidos");
+  const totalExc=excPlata.length+excPlantas.length;
+  if(btn) btn.innerHTML = totalExc
+    ? `⚠ Ver excedidos <span style="background:var(--rojo);color:#fff;border-radius:10px;padding:1px 8px;font-size:12px;margin-left:4px">${totalExc}</span>`
+    : `✓ Ver excedidos (ninguno)`;
 
   if(!excPlata.length && !excPlantas.length){
     cont.innerHTML=`<div style="background:var(--verde-bg);border:1px solid var(--verde);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--verde);font-weight:600">✓ Todo dentro de presupuesto y avance. Sin excedidos.</div>`;
@@ -887,6 +934,10 @@ async function anularFolio(folio){
   }
 }
 
+document.getElementById("btnExcedidos").addEventListener("click",()=>{
+  const el=document.getElementById("alertaExcedidos");
+  el.style.display = el.style.display==="none" ? "block" : "none";
+});
 document.getElementById("filtro").addEventListener("click",e=>{
   if(e.target.tagName!=="BUTTON")return;
   document.querySelectorAll("#filtro button").forEach(b=>b.classList.remove("on"));
@@ -895,7 +946,7 @@ document.getElementById("filtro").addEventListener("click",e=>{
 document.getElementById("buscar").addEventListener("input",e=>{busqueda=e.target.value;drawFolios();});
 
 // Los 5 filtros en cascada: al cambiar uno, se repuebla todo y se redibuja
-function onFiltro(){ poblarFiltros(); drawCuarteles(); drawFolios(); drawGerencial(); }
+function onFiltro(){ poblarFiltros(); drawResumenNoPresup(); drawCuarteles(); drawFolios(); drawGerencial(); }
 document.getElementById("fPresup").addEventListener("change",e=>{fPresup=e.target.value; fGrupoLabor=fCampo=fVariedad=fLabor=fCuartel=""; onFiltro();});
 document.getElementById("fGrupoLabor").addEventListener("change",e=>{fGrupoLabor=e.target.value; fCampo=fVariedad=fLabor=fCuartel=""; onFiltro();});
 document.getElementById("fCampo").addEventListener("change",e=>{fCampo=e.target.value; fVariedad=fLabor=fCuartel=""; onFiltro();});
