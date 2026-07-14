@@ -247,6 +247,8 @@ footer b{color:var(--burdeo)}
     </div>
   </aside>
 
+  <div id="alertaExcedidos" style="margin-bottom:14px"></div>
+
   <div class="kpis" id="kpis"></div>
 
   <h2 style="display:flex;align-items:center;gap:10px">Panel Gerencial
@@ -676,9 +678,57 @@ function render(){
   document.getElementById("kpis").innerHTML=kpis.map(k=>
     `<div class="kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub?`<div class="sub">${k.sub}</div>`:""}</div>`).join("");
   poblarFiltros();
+  drawExcedidos();
   drawCuarteles();
   drawFolios();
   drawGerencial();
+}
+
+// Sección de EXCEDIDOS: recorre TODO FOLIOS (respeta solo el rol, ignora filtros del sidebar)
+function drawExcedidos(){
+  const cont=document.getElementById("alertaExcedidos");
+  if(!cont) return;
+  // Excedidos en PLATA: labor+cuartel donde gasto real > presupuesto (>100%)
+  const realLC={};
+  FOLIOS.forEach(f=>{ const k=normLabor(f.labor)+"|"+(f.cuartel||"").toUpperCase();
+    if(!realLC[k]) realLC[k]={real:0,labor:f.labor,cuartel:f.cuartel}; realLC[k].real+=f.costo; });
+  const excPlata=[];
+  Object.entries(realLC).forEach(([k,d])=>{
+    const precio=PRESUPUESTO[k]; const plantas=PLANTAS_TOTALES[k.split("|")[1]];
+    if(precio!=null && plantas){ const presup=precio*plantas;
+      const pc=presup>0?Math.round(d.real/presup*100):0;
+      if(pc>100) excPlata.push({cuartel:d.cuartel,labor:d.labor,presup,real:d.real,pc}); }
+  });
+  excPlata.sort((a,b)=>b.pc-a.pc);
+  // Excedidos en PLANTAS: plantas registradas > plantas del cuartel (>105%)
+  const plLC={};
+  FOLIOS.forEach(f=>{ const k=f.labor+"|"+(f.cuartel||"");
+    if(!plLC[k]) plLC[k]={pl:0,labor:f.labor,cuartel:f.cuartel}; plLC[k].pl+=f.plantas; });
+  const excPlantas=[];
+  Object.values(plLC).forEach(d=>{ const total=PLANTAS_TOTALES[d.cuartel];
+    if(total){ const pc=Math.round(d.pl/total*100);
+      if(pc>105) excPlantas.push({cuartel:d.cuartel,labor:d.labor,total,pl:d.pl,pc}); } });
+  excPlantas.sort((a,b)=>b.pc-a.pc);
+
+  if(!excPlata.length && !excPlantas.length){
+    cont.innerHTML=`<div style="background:var(--verde-bg);border:1px solid var(--verde);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--verde);font-weight:600">✓ Todo dentro de presupuesto y avance. Sin excedidos.</div>`;
+    return;
+  }
+  const tabla=(titulo,subt,filas,cols)=>`
+    <div style="background:#fff;border:1px solid var(--rojo);border-radius:12px;padding:14px 16px;flex:1;min-width:300px">
+      <h3 style="font-family:'Fraunces',serif;font-size:15px;color:var(--rojo);margin:0 0 2px">${titulo} <span style="background:var(--rojo);color:#fff;border-radius:10px;padding:1px 8px;font-size:12px">${filas.split('<tr>').length-1}</span></h3>
+      <p style="font-size:11px;color:var(--gris);margin:0 0 10px">${subt}</p>
+      <table class="gtabla">${cols}${filas}</table></div>`;
+  const filasPlata=excPlata.map(x=>`<tr><td>${x.cuartel}</td><td>${x.labor}</td><td class="num">${money(x.presup)}</td><td class="num">${money(x.real)}</td><td class="num" style="color:var(--rojo);font-weight:700">${x.pc}%</td></tr>`).join("");
+  const filasPl=excPlantas.map(x=>`<tr><td>${x.cuartel}</td><td>${x.labor}</td><td class="num">${num(x.total)}</td><td class="num">${num(x.pl)}</td><td class="num" style="color:var(--rojo);font-weight:700">${x.pc}%</td></tr>`).join("");
+  cont.innerHTML=`
+    <div style="background:var(--rojo-bg);border:1px solid var(--rojo);border-radius:12px;padding:8px 14px;margin-bottom:10px;font-size:13px;color:var(--rojo);font-weight:700">
+      ⚠ ${excPlata.length} excedido(s) en plata · ${excPlantas.length} en plantas (posibles errores de registro)
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      ${excPlata.length?tabla("Excedidos en plata","Gasto real supera el presupuesto de la labor en ese cuartel.",filasPlata,`<tr><th>Cuartel</th><th>Labor</th><th style="text-align:right">Presup.</th><th style="text-align:right">Gastado</th><th style="text-align:right">%</th></tr>`):''}
+      ${excPlantas.length?tabla("Excedidos en plantas","Plantas registradas superan las del cuartel — revisar registro.",filasPl,`<tr><th>Cuartel</th><th>Labor</th><th style="text-align:right">Cuartel</th><th style="text-align:right">Registrado</th><th style="text-align:right">%</th></tr>`):''}
+    </div>`;
 }
 
 // Puebla los 5 selects: cada uno muestra solo lo que dejan los filtros anteriores
