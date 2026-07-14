@@ -42,68 +42,39 @@ h1{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(26px,4vw,40px);l
 .seg button{border:0;background:transparent;padding:9px 15px;font-family:inherit;font-size:13px;font-weight:600;color:var(--gris);cursor:pointer;transition:.15s}
 .seg button.on{background:var(--burdeo);color:#fff}
 .search{flex:1;min-width:180px;border:1px solid var(--linea);border-radius:10px;padding:9px 13px;font-family:inherit;font-size:13px;background:var(--papel);color:var(--tinta)}
-.filtroSel{flex:1;min-width:140px;border:1px solid var(--linea);border-radius:10px;padding:9px 11px;font-family:inherit;font-size:13px;background:var(--papel);color:var(--tinta);cursor:pointer}
+.filtroSel{flex:1;min-width:140px;border:1px solid var(--linea);border-radius:10px;padding:9px 11px;font-family:inherit;font-size:13px;background:#fff;color:var(--tinta);cursor:pointer}
 .filtroSel:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
-.search:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
-.count{font-size:12px;color:var(--gris);margin-left:auto}
-
-/* SECCION CUARTELES */
-h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burdeo);margin:30px 0 4px;border-bottom:2px solid var(--dorado);padding-bottom:8px;display:inline-block}
-.hint{font-size:12px;color:var(--gris);margin:8px 0 14px;font-style:italic}
-.cuarteles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:8px}
-.cq{background:var(--papel);border:1px solid var(--linea);border-radius:12px;padding:14px}
-.cq .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
-.cq .nm{font-family:'Fraunces',serif;font-weight:900;font-size:19px}
-.cq .gp{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--gris);font-weight:600}
-.cq .plantas{font-size:12px;color:var(--gris);margin-bottom:9px}
-.cq .plantas b{color:var(--tinta);font-weight:700}
-.split{height:9px;border-radius:5px;background:#EDE7DC;overflow:hidden;display:flex}
-.split .ap{background:var(--verde)} .split .pr{background:var(--naranja);opacity:.85}
-.cq .leg{display:flex;gap:12px;font-size:10.5px;margin-top:7px;color:var(--gris)}
-.cq .leg i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
-.cq .presup{margin-top:9px;padding-top:9px;border-top:1px dashed var(--linea);font-size:11px;line-height:1.7}
-.cq .presup b{color:var(--tinta)}
-/* Panel gerencial */
+.barFiltros{position:sticky;top:0;z-index:50;background:var(--crema);padding:12px 0;margin-bottom:8px;border-bottom:1px solid var(--linea)}
+/* Panel gerencial — paleta sobria */
 .gerKpiRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
-.gerKpi{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 4px rgba(60,40,20,.05);position:relative}
-.gerKpi .ic{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.gerKpi{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 3px rgba(60,40,20,.04);position:relative}
+.gerKpi .ic{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;background:#F4F1EC}
 .gerKpi .lbl{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gris);font-weight:700;margin-bottom:6px}
-.gerKpi .val{font-family:'Fraunces',serif;font-size:26px;font-weight:900;line-height:1.1}
+.gerKpi .val{font-family:'Fraunces',serif;font-size:25px;font-weight:900;line-height:1.1;color:var(--tinta)}
 .gerKpi .sub{font-size:11px;color:var(--gris);margin-top:5px}
-.gerKpi .ptrack{height:7px;background:var(--linea);border-radius:4px;margin-top:9px;overflow:hidden}
-.gerKpi .pfill{height:100%;border-radius:4px;background:var(--burdeo)}
-.gerGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:14px}
-.gerCard{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 4px rgba(60,40,20,.05)}
+.gerKpi .ptrack{height:6px;background:#EFEBE4;border-radius:4px;margin-top:9px;overflow:hidden}
+.gerKpi .pfill{height:100%;border-radius:4px}
+.gerGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:14px}
+.gerCard{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 3px rgba(60,40,20,.04)}
 .gerCard.wide{grid-column:1/-1}
-.gerCard h3{font-family:'Fraunces',serif;font-size:15px;color:var(--burdeo);margin:0 0 12px}
-.gbar{margin-bottom:9px}
+.gerCard h3{font-family:'Fraunces',serif;font-size:15px;color:var(--tinta);margin:0 0 12px}
+.gbar{margin-bottom:10px}
 .gbar .glbl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
 .gbar .glbl b{font-variant-numeric:tabular-nums}
-.gbar .gtrack{height:9px;background:var(--linea);border-radius:5px;overflow:hidden}
-.gbar .gfill{height:100%;border-radius:5px;background:var(--burdeo)}
+.gbar .gtrack{height:8px;background:#EFEBE4;border-radius:5px;overflow:hidden}
+.gbar .gfill{height:100%;border-radius:5px;background:#9AA88C}
 .gtabla{width:100%;border-collapse:collapse;font-size:12px}
-.gtabla th{text-align:left;color:var(--gris);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--linea);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-.gtabla td{padding:6px 8px;border-bottom:1px solid var(--linea)}
+.gtabla th{text-align:left;color:var(--gris);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--linea);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
+.gtabla td{padding:7px 8px;border-bottom:1px solid #F0ECE5}
 .gtabla td.num{text-align:right;font-variant-numeric:tabular-nums}
-/* dona */
-.donaWrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-.dona{width:150px;height:150px;border-radius:50%;position:relative;flex-shrink:0}
-.dona::after{content:attr(data-c);position:absolute;inset:26px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:900;font-size:17px}
-.donaLeg{font-size:12px;flex:1;min-width:140px}
-.donaLeg div{margin-bottom:7px;display:flex;align-items:baseline;gap:7px}
-.donaLeg i{width:10px;height:10px;border-radius:3px;flex-shrink:0;display:inline-block;transform:translateY(1px)}
-/* treemap */
-.tree{display:grid;grid-template-columns:3fr 2fr;gap:6px;min-height:170px}
-.tree .tcol{display:flex;flex-direction:column;gap:6px}
-.tree .tb{border-radius:10px;color:#fff;padding:10px 12px;font-size:11.5px;display:flex;flex-direction:column;justify-content:flex-end;min-height:34px}
-.tree .tb b{font-size:13px}
-/* evolucion */
+.gtabla tr:last-child td{border-bottom:0}
 .evolSvg{width:100%;height:180px;display:block}
-/* pie de metricas */
-.gerFoot{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;background:#fff;border:1px solid var(--linea);border-radius:16px;padding:14px 18px;box-shadow:0 1px 4px rgba(60,40,20,.05);margin-bottom:22px}
+.gerFoot{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 3px rgba(60,40,20,.04);margin-bottom:22px}
 .gerFoot .fm{text-align:center;padding:4px}
-.gerFoot .fm .fv{font-family:'Fraunces',serif;font-weight:900;font-size:20px;color:var(--burdeo)}
-.gerFoot .fm .fl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--gris);font-weight:700;margin-top:2px}
+.gerFoot .fm .fv{font-family:'Fraunces',serif;font-weight:900;font-size:20px;color:var(--tinta)}
+.gerFoot .fm .fl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--gris);font-weight:700;margin-top:3px}
+.sem-ok{color:#2E7D46} .sem-warn{color:#C8621F} .sem-bad{color:#B23A2E}
+.fill-ok{background:#4E9A5F} .fill-warn{background:#D68A3A} .fill-bad{background:#C0483B} .fill-neutral{background:#9AA88C}
 
 /* TABLA / TARJETAS FOLIOS */
 .folios{display:flex;flex-direction:column;gap:9px;margin-top:6px}
@@ -223,6 +194,17 @@ footer b{color:var(--burdeo)}
     <div id="cargaLog" style="margin-top:10px;font-size:12.5px"></div>
   </div>
 
+  <div class="barFiltros">
+    <div class="bar" style="flex-wrap:wrap;margin:0">
+      <select id="fGrupoLabor" class="filtroSel"><option value="">Todos los grupos labor</option></select>
+      <select id="fCampo" class="filtroSel"><option value="">Todos los campos</option></select>
+      <select id="fVariedad" class="filtroSel"><option value="">Todas las variedades</option></select>
+      <select id="fLabor" class="filtroSel"><option value="">Todas las labores</option></select>
+      <select id="fCuartel" class="filtroSel"><option value="">Todos los cuarteles</option></select>
+      <button id="limpiarFiltros" style="border:1px solid var(--linea);background:#fff;color:var(--gris);font-family:inherit;font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer">Limpiar</button>
+    </div>
+  </div>
+
   <div class="kpis" id="kpis"></div>
 
   <h2 style="display:flex;align-items:center;gap:10px">Panel Gerencial
@@ -232,31 +214,18 @@ footer b{color:var(--burdeo)}
   <div id="panelGer" style="display:none">
     <div class="gerKpiRow" id="gerKpis"></div>
     <div class="gerGrid">
-      <div class="gerCard"><h3>💵 Gasto por campo</h3><div id="gerCampo"></div></div>
-      <div class="gerCard"><h3>🍇 Gasto por grupo de labor</h3><div id="gerDona"></div></div>
-      <div class="gerCard"><h3>🏆 Top 5 labores por costo</h3><div id="gerTopLab"></div></div>
-      <div class="gerCard wide"><h3>📈 Avance por labor</h3><p class="hint" style="margin:0 0 10px">% de plantas trabajadas sobre el total de plantas de los cuarteles donde se ejecuta cada labor · y peso de cada labor en el gasto.</p><div id="gerAvance"></div></div>
-      <div class="gerCard wide"><h3>📅 Evolución del gasto acumulado</h3><div id="gerEvol"></div></div>
-      <div class="gerCard"><h3>🗺 Distribución del gasto</h3><div id="gerTree"></div></div>
-      <div class="gerCard"><h3>💰 Presupuesto vs real por labor</h3><div id="gerPresup"></div></div>
-      <div class="gerCard wide"><h3>⏰ Riesgo administrativo: preliminares pendientes</h3><div id="gerRiesgo"></div></div>
+      <div class="gerCard wide"><h3>Presupuesto vs real por labor</h3><p class="hint" style="margin:0 0 10px">Presupuesto anual = precio × plantas de TODOS los cuarteles con esa labor. Verde &lt;85% · ámbar 85–100% · rojo &gt;100%.</p><div id="gerPresup"></div></div>
+      <div class="gerCard wide"><h3>Avance físico por labor</h3><p class="hint" style="margin:0 0 10px">% de plantas trabajadas sobre el total presupuestado de cada labor.</p><div id="gerAvance"></div></div>
+      <div class="gerCard"><h3>Gasto por campo</h3><div id="gerCampo"></div></div>
+      <div class="gerCard"><h3>Gasto por grupo de labor</h3><div id="gerGrupoLab"></div></div>
+      <div class="gerCard wide"><h3>Evolución del gasto acumulado</h3><div id="gerEvol"></div></div>
+      <div class="gerCard wide"><h3>Riesgo administrativo: preliminares pendientes</h3><div id="gerRiesgo"></div></div>
     </div>
     <div class="gerFoot" id="gerFoot"></div>
   </div>
 
-  <h2>Filtros</h2>
-  <p class="hint">Los filtros se encadenan y afectan tanto el avance por cuartel como la lista de folios. El avance por cuartel usa la <b>labor</b> elegida.</p>
-  <div class="bar" style="flex-wrap:wrap">
-    <select id="fGrupoLabor" class="filtroSel"><option value="">Todos los grupos labor</option></select>
-    <select id="fCampo" class="filtroSel"><option value="">Todos los campos</option></select>
-    <select id="fVariedad" class="filtroSel"><option value="">Todas las variedades</option></select>
-    <select id="fLabor" class="filtroSel"><option value="">Todas las labores</option></select>
-    <select id="fCuartel" class="filtroSel"><option value="">Todos los cuarteles</option></select>
-    <button id="limpiarFiltros" style="border:1px solid var(--linea);background:var(--papel);color:var(--gris);font-family:inherit;font-size:12px;padding:8px 12px;border-radius:8px;cursor:pointer">Limpiar</button>
-  </div>
-
   <h2>Avance por cuartel</h2>
-  <p class="hint">Verde = aprobado · naranja = preliminar. Elige una <b>labor</b> en los filtros para ver el % de avance.</p>
+  <p class="hint">Verde = aprobado · naranja = preliminar. Elige una <b>labor</b> en los filtros de arriba para ver el % de avance.</p>
   <div class="cuarteles" id="cuarteles"></div>
 
   <h2>Folios para revisar</h2>
@@ -442,7 +411,7 @@ function barras(contId, pares, colorFn){
   const max=Math.max(...pares.map(p=>p[1]),1);
   document.getElementById(contId).innerHTML = pares.map(([k,v])=>{
     const w=Math.round(v/max*100);
-    const color=colorFn?colorFn(k,v):'var(--burdeo)';
+    const color=colorFn?colorFn(k,v):'#9AA88C';
     return `<div class="gbar"><div class="glbl"><span>${k}</span><b>${money(v)}</b></div>
       <div class="gtrack"><div class="gfill" style="width:${w}%;background:${color}"></div></div></div>`;
   }).join("") || '<p class="empty">Sin datos.</p>';
@@ -450,7 +419,6 @@ function barras(contId, pares, colorFn){
 
 function drawGerencial(){
   if(!document.getElementById("gerKpis")) return;
-  // ★ Usa los MISMOS filtros en cascada: todos los KPI se mueven con los segmentadores
   const D = aplicarCascada(FOLIOS,5);
   const aprob=D.filter(f=>f.estado==="APROBADO");
   const prelim=D.filter(f=>f.estado==="PRELIMINAR");
@@ -461,168 +429,124 @@ function drawGerencial(){
   const costoPorPlanta=plantasTrab>0?Math.round(costoTotal/plantasTrab):0;
   const laboresEnCurso=new Set(D.map(f=>f.labor)).size;
 
-  // Presupuesto (labores+cuarteles ejecutados con presupuesto)
-  const ejecutado={};
-  D.forEach(f=>{ const k=normLabor(f.labor)+"|"+(f.cuartel||"").toUpperCase();
-    ejecutado[k]=(ejecutado[k]||0)+f.costo; });
-  let presupGlobal=0, realGlobal=0;
-  const porLaborPresup={};
-  Object.entries(ejecutado).forEach(([k,real])=>{
-    const [labN,cua]=k.split("|");
-    const precio=PRESUPUESTO[k]; const plantas=PLANTAS_TOTALES[cua];
-    if(precio!=null && plantas){
-      const pres=precio*plantas; presupGlobal+=pres; realGlobal+=real;
-      const lbl=(D.find(f=>normLabor(f.labor)===labN)||{}).labor||labN;
-      if(!porLaborPresup[lbl]) porLaborPresup[lbl]={presup:0,real:0};
-      porLaborPresup[lbl].presup+=pres; porLaborPresup[lbl].real+=real;
+  // ===== PRESUPUESTO POR LABOR (compromiso anual COMPLETO) =====
+  // Para cada labor ejecutada en D, el presupuesto = precio × plantas de TODOS los cuarteles
+  // que tengan esa labor en PRESUPUESTO (no solo los ejecutados).
+  // Real = lo gastado en esa labor (según los folios en D).
+  const laboresD = [...new Set(D.map(f=>f.labor))];
+  const realPorLaborN = {};   // labor_norm -> real gastado
+  D.forEach(f=>{ const n=normLabor(f.labor); realPorLaborN[n]=(realPorLaborN[n]||0)+f.costo; });
+
+  const porLaborPresup = {};  // labor legible -> {presup, real, plTrab, plTotal}
+  laboresD.forEach(lab=>{
+    const n=normLabor(lab);
+    // sumar precio×plantas de TODOS los cuarteles con esta labor en el presupuesto
+    let presup=0, plTotal=0;
+    Object.keys(PRESUPUESTO).forEach(k=>{
+      const [ln,cua]=k.split("|");
+      if(ln===n){ const pl=PLANTAS_TOTALES[cua];
+        if(pl){ presup+=PRESUPUESTO[k]*pl; plTotal+=pl; } }
+    });
+    if(presup>0){
+      const plTrab=D.filter(f=>normLabor(f.labor)===n).reduce((s,f)=>s+f.plantas,0);
+      porLaborPresup[lab]={presup, real:realPorLaborN[n]||0, plTrab, plTotal};
     }
   });
+  let presupGlobal=0, realGlobal=0;
+  Object.values(porLaborPresup).forEach(d=>{presupGlobal+=d.presup; realGlobal+=Math.min(d.real,d.presup*3);});
+  // real global: sumamos el real de labores presupuestadas
+  realGlobal=Object.values(porLaborPresup).reduce((s,d)=>s+d.real,0);
   const consumoGlobal=presupGlobal>0?Math.round(realGlobal/presupGlobal*100):null;
 
-  // ==== KPI cards ====
+  // ===== KPI cards =====
   const p3=prelim.filter(f=>f.dias>3).length;
-  const kpi=(lbl,val,sub,ic,icBg,extra="")=>`<div class="gerKpi">
-    <div class="ic" style="background:${icBg}">${ic}</div>
-    <div class="lbl">${lbl}</div><div class="val">${val}</div>
+  const semColor=pc=>pc>100?'var(--rojo)':(pc>85?'#C8621F':'#2E7D46');
+  const semFill=pc=>pc>100?'#C0483B':(pc>85?'#D68A3A':'#4E9A5F');
+  const kpi=(lbl,val,sub,ic,extra="")=>`<div class="gerKpi">
+    <div class="ic">${ic}</div><div class="lbl">${lbl}</div><div class="val">${val}</div>
     ${sub?`<div class="sub">${sub}</div>`:""}${extra}</div>`;
   document.getElementById("gerKpis").innerHTML =
-    kpi("Gasto total", money(costoTotal), `Aprob: ${money(costoAprob)} · Prelim: ${money(costoPrelim)}`, "💵","#EAF3EC")+
+    kpi("Gasto total", money(costoTotal), `Aprob: ${money(costoAprob)} · Prelim: ${money(costoPrelim)}`, "$")+
     kpi("Presupuesto consumido", consumoGlobal!==null?consumoGlobal+"%":"—",
-        consumoGlobal!==null?`${money(realGlobal)} de ${money(presupGlobal)}`:"sin labores presupuestadas",
-        "📊","#F2ECFA",
-        consumoGlobal!==null?`<div class="ptrack"><div class="pfill" style="width:${Math.min(100,consumoGlobal)}%;background:${consumoGlobal>100?'var(--rojo)':'var(--burdeo)'}"></div></div>`:"")+
-    kpi("Costo por planta", "$"+num(costoPorPlanta), num(plantasTrab)+" plantas trabajadas", "🌱","#EAF3EC")+
-    kpi("Folios pendientes", prelim.length, p3+" con más de 3 días", "⏱","#FBEDE2")+
-    kpi("Labores en curso", laboresEnCurso, "actividades en ejecución", "⚡","#E8F0FA");
+        consumoGlobal!==null?`${money(realGlobal)} de ${money(presupGlobal)}`:"sin labores presupuestadas","%",
+        consumoGlobal!==null?`<div class="ptrack"><div class="pfill" style="width:${Math.min(100,consumoGlobal)}%;background:${semFill(consumoGlobal)}"></div></div>`:"")+
+    kpi("Costo por planta", "$"+num(costoPorPlanta), num(plantasTrab)+" plantas trabajadas", "◷")+
+    kpi("Folios pendientes", prelim.length, p3+" con más de 3 días", "!")+
+    kpi("Labores en curso", laboresEnCurso, "actividades en ejecución", "≡");
 
-  // ==== Gasto por campo (barras) ====
+  // ===== Presupuesto vs real por labor =====
+  const filasP=Object.entries(porLaborPresup).sort((a,b)=>b[1].presup-a[1].presup);
+  document.getElementById("gerPresup").innerHTML = filasP.length
+    ? `<table class="gtabla"><tr><th>Labor</th><th style="text-align:right">Presupuesto</th><th style="text-align:right">Gastado</th><th style="text-align:right">Consumo</th></tr>`+
+      filasP.map(([l,d])=>{
+        const pc=d.presup>0?Math.round(d.real/d.presup*100):0;
+        return `<tr><td>${l}</td><td class="num">${money(d.presup)}</td><td class="num">${money(d.real)}</td><td class="num" style="color:${semColor(pc)};font-weight:700">${pc}%${pc>100?' ⚠':''}</td></tr>`;
+      }).join("")+`</table>`
+    : '<p class="empty">Sin labores presupuestadas en los filtros elegidos.</p>';
+
+  // ===== Avance físico por labor (plantas trabajadas / plantas presupuestadas) =====
+  const filasAv=filasP.map(([l,d])=>({l, av:d.plTotal>0?Math.round(d.plTrab/d.plTotal*100):0, plTrab:d.plTrab, plTotal:d.plTotal}))
+    .sort((a,b)=>b.av-a.av);
+  document.getElementById("gerAvance").innerHTML = filasAv.length
+    ? filasAv.map(x=>{
+        const col=x.av>105?'#C0483B':(x.av>=100?'#4E9A5F':'#9AA88C');
+        return `<div class="gbar"><div class="glbl"><span>${x.l}</span><b>${x.av}%</b></div>
+          <div class="gtrack"><div class="gfill" style="width:${Math.min(100,x.av)}%;background:${col}"></div></div>
+          <div style="font-size:10.5px;color:var(--gris);margin-top:2px">${num(x.plTrab)} de ${num(x.plTotal)} plantas presupuestadas</div></div>`;
+      }).join("")
+    : '<p class="empty">Sin avance medible en los filtros elegidos.</p>';
+
+  // ===== Gasto por campo =====
   const porCampo={};
   D.forEach(f=>{ if(f.grupo) porCampo[f.grupo]=(porCampo[f.grupo]||0)+f.costo; });
   barras("gerCampo", Object.entries(porCampo).sort((a,b)=>b[1]-a[1]));
 
-  // ==== Dona: grupo de labor ====
+  // ===== Gasto por grupo de labor (barras, no dona) =====
   const porGL={};
   D.forEach(f=>{ porGL[f.grupoLabor]=(porGL[f.grupoLabor]||0)+f.costo; });
-  const glArr=Object.entries(porGL).sort((a,b)=>b[1]-a[1]);
-  const colores=['#7B2D2D','#C4933F','#4E7A5A','#8A8178','#B76B4B','#5A6B8A'];
-  let acc=0; const segs=[];
-  glArr.forEach(([k,v],i)=>{ const pct=costoTotal?v/costoTotal*100:0;
-    segs.push(`${colores[i%colores.length]} ${acc}% ${acc+pct}%`); acc+=pct; });
-  const donaC = costoTotal>=1e6 ? "$"+(costoTotal/1e6).toFixed(1).replace(".",",")+"M" : money(costoTotal);
-  document.getElementById("gerDona").innerHTML = glArr.length
-    ? `<div class="donaWrap"><div class="dona" data-c="${donaC}" style="background:conic-gradient(${segs.join(",")})"></div>
-       <div class="donaLeg">${glArr.map(([k,v],i)=>{
-          const pct=costoTotal?Math.round(v/costoTotal*1000)/10:0;
-          return `<div><i style="background:${colores[i%colores.length]}"></i><span><b>${k}</b><br>${money(v)} (${String(pct).replace(".",",")}%)</span></div>`;}).join("")}
-       </div></div>`
-    : '<p class="empty">Sin datos.</p>';
+  barras("gerGrupoLab", Object.entries(porGL).sort((a,b)=>b[1]-a[1]));
 
-  // ==== Top 5 labores ====
-  const porLab={};
-  D.forEach(f=>{ porLab[f.labor]=(porLab[f.labor]||0)+f.costo; });
-  const top5L=Object.entries(porLab).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  document.getElementById("gerTopLab").innerHTML =
-    `<table class="gtabla"><tr><th>Labor</th><th style="text-align:right">Costo</th><th style="text-align:right">% del total</th></tr>`+
-    top5L.map(([l,v])=>`<tr><td>${l}</td><td class="num">${money(v)}</td><td class="num"><b>${costoTotal?Math.round(v/costoTotal*100):0}%</b></td></tr>`).join("")+`</table>`;
-
-  // ==== Avance por labor (% plantas trabajadas vs plantas de sus cuarteles + % del gasto) ====
-  const avLab={};  // labor -> {plantas, cuarteles:Set, costo}
-  D.forEach(f=>{
-    if(!avLab[f.labor]) avLab[f.labor]={plantas:0,cuarteles:new Set(),costo:0};
-    avLab[f.labor].plantas+=f.plantas;
-    if(f.cuartel && PLANTAS_TOTALES[f.cuartel]) avLab[f.labor].cuarteles.add(f.cuartel);
-    avLab[f.labor].costo+=f.costo;
-  });
-  const filasAv=Object.entries(avLab)
-    .map(([l,d])=>{
-      const totalPl=[...d.cuarteles].reduce((s,c)=>s+PLANTAS_TOTALES[c],0);
-      const av=totalPl>0?Math.round(d.plantas/totalPl*100):null;
-      return {l, plantas:d.plantas, totalPl, av, costo:d.costo};
-    })
-    .filter(x=>x.av!==null && x.plantas>0)
-    .sort((a,b)=>b.costo-a.costo).slice(0,10);
-  document.getElementById("gerAvance").innerHTML = filasAv.length
-    ? filasAv.map(x=>{
-        const pctG=costoTotal?Math.round(x.costo/costoTotal*100):0;
-        const col=x.av>105?'var(--rojo)':(x.av>=100?'var(--verde)':'var(--burdeo)');
-        return `<div class="gbar"><div class="glbl">
-          <span>${x.l} <span style="color:var(--gris)">· ${pctG}% del gasto</span></span>
-          <b style="color:${col}">${x.av}%</b></div>
-          <div class="gtrack"><div class="gfill" style="width:${Math.min(100,x.av)}%;background:${col}"></div></div>
-          <div style="font-size:10.5px;color:var(--gris);margin-top:2px">${num(x.plantas)} de ${num(x.totalPl)} plantas en sus cuarteles</div>
-        </div>`;}).join("")
-    : '<p class="empty">Sin labores con avance medible en los filtros elegidos.</p>';
-
-  // ==== Evolución del gasto acumulado (SVG) ====
+  // ===== Evolución del gasto acumulado =====
   const porFecha={};
   D.forEach(f=>{ if(f.creado) porFecha[f.creado]=(porFecha[f.creado]||0)+f.costo; });
   const fechas=Object.keys(porFecha).sort();
   let ac=0; const serie=fechas.map(d=>{ac+=porFecha[d];return [d,ac];});
   if(serie.length>1){
-    const W=900,H=170,PAD=42;
+    const W=900,H=170,PAD=48;
     const maxV=serie[serie.length-1][1];
     const x=i=>PAD+i*(W-PAD-12)/(serie.length-1);
     const y=v=>H-22-(v/maxV)*(H-42);
     const pts=serie.map((s,i)=>`${x(i)},${y(s[1])}`).join(" ");
     const area=`${PAD},${H-22} ${pts} ${x(serie.length-1)},${H-22}`;
-    // etiquetas: primera, media, última fecha
     const et=i=>{const d=serie[i][0].slice(5).split("-");return d[1]+"/"+d[0];};
     const lab=[0,Math.floor(serie.length/2),serie.length-1];
     document.getElementById("gerEvol").innerHTML =
       `<svg class="evolSvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        <polygon points="${area}" fill="rgba(123,45,45,.10)"/>
-        <polyline points="${pts}" fill="none" stroke="var(--burdeo)" stroke-width="2.5"/>
-        ${serie.map((s,i)=>`<circle cx="${x(i)}" cy="${y(s[1])}" r="3" fill="var(--burdeo)"/>`).join("")}
+        <polygon points="${area}" fill="rgba(154,168,140,.18)"/>
+        <polyline points="${pts}" fill="none" stroke="#6E8063" stroke-width="2.5"/>
+        ${serie.map((s,i)=>`<circle cx="${x(i)}" cy="${y(s[1])}" r="3" fill="#6E8063"/>`).join("")}
         <text x="${PAD}" y="14" font-size="11" fill="#8A8178">${money(maxV)} acumulado</text>
         ${lab.map(i=>`<text x="${x(i)}" y="${H-6}" font-size="10" fill="#8A8178" text-anchor="middle">${et(i)}</text>`).join("")}
       </svg>`;
-  } else {
-    document.getElementById("gerEvol").innerHTML='<p class="empty">Se necesitan folios de al menos 2 fechas.</p>';
-  }
+  } else document.getElementById("gerEvol").innerHTML='<p class="empty">Se necesitan folios de al menos 2 fechas.</p>';
 
-  // ==== Treemap: distribución del gasto por campo ====
-  const tArr=Object.entries(porCampo).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  if(tArr.length){
-    const tot=tArr.reduce((s,[,v])=>s+v,0);
-    const tc=['#7B2D2D','#C4933F','#4E7A5A','#8A8178','#B76B4B'];
-    const bloque=([k,v],i)=>{const p=Math.round(v/tot*100);
-      return `<div class="tb" style="background:${tc[i%tc.length]};flex:${Math.max(v,1)}"><b>${k}</b>${money(v)} (${p}%)</div>`;};
-    const principal=tArr[0], resto=tArr.slice(1,5);
-    document.getElementById("gerTree").innerHTML =
-      `<div class="tree"><div class="tcol">${bloque(principal,0)}</div>
-       <div class="tcol">${resto.map((e,i)=>bloque(e,i+1)).join("")||'<div class="tb" style="background:#8A8178">—</div>'}</div></div>`;
-  } else {
-    document.getElementById("gerTree").innerHTML='<p class="empty">Sin datos.</p>';
-  }
-
-  // ==== Presupuesto vs real por labor ====
-  const filasP=Object.entries(porLaborPresup).sort((a,b)=>b[1].real-a[1].real);
-  document.getElementById("gerPresup").innerHTML = filasP.length
-    ? `<table class="gtabla"><tr><th>Labor</th><th style="text-align:right">Presup.</th><th style="text-align:right">Real</th><th style="text-align:right">Consumo</th></tr>`+
-      filasP.map(([l,d])=>{
-        const pc=d.presup>0?Math.round(d.real/d.presup*100):0;
-        const col=pc>100?'var(--rojo)':(pc>85?'var(--naranja)':'var(--verde)');
-        return `<tr><td>${l}</td><td class="num">${money(d.presup)}</td><td class="num">${money(d.real)}</td><td class="num" style="color:${col};font-weight:700">${pc}%${pc>100?' ⚠':''}</td></tr>`;
-      }).join("")+`</table>`
-    : '<p class="empty">Sin labores presupuestadas en los filtros elegidos.</p>';
-
-  // ==== Riesgo: preliminares antiguos ====
+  // ===== Riesgo: preliminares antiguos =====
   const riesgo=prelim.filter(f=>f.dias>3).sort((a,b)=>b.dias-a.dias).slice(0,10);
   document.getElementById("gerRiesgo").innerHTML = riesgo.length
     ? `<table class="gtabla"><tr><th>Folio</th><th>Cuartel</th><th>Labor</th><th>Encargado</th><th style="text-align:right">Días</th><th style="text-align:right">Costo</th></tr>`+
-      riesgo.map(f=>`<tr><td><b>${f.folio}</b></td><td>${f.cuartel}</td><td>${f.labor}</td><td>${f.encargado}</td><td class="num" style="color:${f.dias>7?'var(--rojo)':'var(--naranja)'};font-weight:700">${f.dias}</td><td class="num">${money(f.costo)}</td></tr>`).join("")+`</table>`
+      riesgo.map(f=>`<tr><td><b>${f.folio}</b></td><td>${f.cuartel}</td><td>${f.labor}</td><td>${f.encargado}</td><td class="num" style="color:${f.dias>7?'var(--rojo)':'#C8621F'};font-weight:700">${f.dias}</td><td class="num">${money(f.costo)}</td></tr>`).join("")+`</table>`
     : '<p class="empty">✓ Sin preliminares antiguos. Todo al día.</p>';
 
-  // ==== Pie de métricas ====
+  // ===== Pie de métricas =====
   const dotacion=D.reduce((s,f)=>s+f.trab,0);
-  const foliosTrato=D.filter(f=>f.tipo==="TRATO"&&f.plantas>0);
-  const rendimiento=foliosTrato.length?Math.round(foliosTrato.reduce((s,f)=>s+f.plantas,0)/foliosTrato.reduce((s,f)=>s+f.trab,0)||0):0;
+  const ft=D.filter(f=>f.tipo==="TRATO"&&f.plantas>0);
+  const rendimiento=ft.length&&ft.reduce((s,f)=>s+f.trab,0)?Math.round(ft.reduce((s,f)=>s+f.plantas,0)/ft.reduce((s,f)=>s+f.trab,0)):0;
   const fm=(v,l)=>`<div class="fm"><div class="fv">${v}</div><div class="fl">${l}</div></div>`;
   document.getElementById("gerFoot").innerHTML =
     fm(num(plantasTrab),"Plantas trabajadas")+
     fm(D.length,"Folios en análisis")+
     fm(num(dotacion),"Dotación acumulada")+
-    fm(rendimiento?num(rendimiento)+" pl/pers":"—","Rendimiento promedio")+
+    fm(rendimiento?num(rendimiento):"—","Plantas por persona")+
     fm(consumoGlobal!==null?(100-Math.min(consumoGlobal,100))+"%":"—","Presupuesto disponible");
 }
 
@@ -695,20 +619,22 @@ function poblarFiltros(){
 
 function drawCuarteles(){
   const cont=document.getElementById("cuarteles");
-  // el avance por cuartel necesita una labor específica
-  if(!fLabor){
-    cont.innerHTML='<p class="empty">Elige una <b>labor</b> en los filtros para ver el % de avance por cuartel.</p>';
+  // Basta con elegir GRUPO DE LABOR (o labor). Sin ninguno de los dos, pedir grupo.
+  if(!fGrupoLabor && !fLabor){
+    cont.innerHTML='<p class="empty">Elige un <b>grupo de labor</b> (y opcionalmente una labor) en los filtros de arriba para ver el avance por cuartel.</p>';
     return;
   }
-  // aplica toda la cascada, y fija la labor elegida
   const base=aplicarCascada(FOLIOS,5);
+  // si hay labor específica, filtra por ella; si no, usa todas las del grupo elegido
+  const rel = fLabor ? base.filter(f=>f.labor===fLabor) : base;
   const cq={};
-  base.filter(f=>f.labor===fLabor).forEach(f=>{
+  rel.forEach(f=>{
     if(!cq[f.cuartel]) cq[f.cuartel]={cuartel:f.cuartel,grupo:f.grupo,ap:0,pr:0,costoReal:0};
     if(f.estado==="APROBADO") cq[f.cuartel].ap+=f.plantas; else cq[f.cuartel].pr+=f.plantas;
     cq[f.cuartel].costoReal+=f.costo;
   });
   const arr=Object.values(cq).filter(c=>c.ap+c.pr>0).sort((a,b)=>(b.ap+b.pr)-(a.ap+a.pr));
+  const tituloLabor = fLabor ? fLabor : (fGrupoLabor+" (todas sus labores)");
   cont.innerHTML=arr.map(c=>{
     const comp=c.ap+c.pr;
     const total=PLANTAS_TOTALES[c.cuartel];
@@ -718,18 +644,22 @@ function drawCuarteles(){
     let pctTxt = total ? `<b>${pct}%</b> de ${num(total)}` : `<b>${num(comp)}</b> comprom. · total sin cargar`;
     if(pct!==null && pct>105) pctTxt += ' <span style="color:var(--rojo);font-weight:700">⚠ excede</span>';
 
-    // Comparación presupuesto vs real (solo si la labor+cuartel tiene presupuesto y hay plantas del cuartel)
+    // Presupuesto: solo tiene sentido cuando hay una labor específica elegida
     let presupLine="";
-    const precio=precioPresup(fLabor, c.cuartel);
-    if(precio!==null && total){
-      const presupTotal = precio*total;                       // precio × TODAS las plantas del cuartel
-      const consumido = presupTotal>0 ? Math.round(c.costoReal/presupTotal*100) : 0;
-      const colorC = consumido>100 ? 'var(--rojo)' : (consumido>85?'var(--naranja)':'var(--verde)');
-      presupLine = `<div class="presup">
-        <div>Presupuesto: <b>${money(presupTotal)}</b> <span style="color:var(--gris)">(${num(total)} × ${money(precio)})</span></div>
-        <div>Gastado real: <b>${money(c.costoReal)}</b></div>
-        <div>Consumido: <b style="color:${colorC}">${consumido}%</b> del presupuesto${consumido>100?' ⚠':''}</div>
-      </div>`;
+    if(fLabor){
+      const precio=precioPresup(fLabor, c.cuartel);
+      if(precio!==null && total){
+        const presupTotal = precio*total;
+        const consumido = presupTotal>0 ? Math.round(c.costoReal/presupTotal*100) : 0;
+        const colorC = consumido>100 ? 'var(--rojo)' : (consumido>85?'#C8621F':'#2E7D46');
+        presupLine = `<div class="presup">
+          <div>Presupuesto: <b>${money(presupTotal)}</b> <span style="color:var(--gris)">(${num(total)} × ${money(precio)})</span></div>
+          <div>Gastado real: <b>${money(c.costoReal)}</b></div>
+          <div>Consumido: <b style="color:${colorC}">${consumido}%</b>${consumido>100?' ⚠':''}</div>
+        </div>`;
+      }
+    } else {
+      presupLine=`<div class="presup"><div>Gastado real: <b>${money(c.costoReal)}</b></div></div>`;
     }
 
     return `<div class="cq">
@@ -739,7 +669,7 @@ function drawCuarteles(){
       <div class="leg"><span><i style="background:var(--verde)"></i>${num(c.ap)} aprob</span><span><i style="background:var(--naranja)"></i>${num(c.pr)} prelim</span></div>
       ${presupLine}
     </div>`;
-  }).join("") || '<p class="empty">Sin plantas de trato para esta labor con los filtros elegidos.</p>';
+  }).join("") || '<p class="empty">Sin plantas de trato con los filtros elegidos.</p>';
 }
 
 function drawFolios(){
@@ -783,7 +713,7 @@ function drawFolios(){
         <div class="meta">
           <span>👤 <b>${f.trab}</b> trab.</span>
           <span>📋 ${f.encargado}</span>
-          ${(f.costo>0 && f.trab>0)?`<span>💵 promedio <b>${money(Math.round(f.costo/f.trab))}</b>/persona</span>`:''}
+          ${(f.costo>0 && f.trab>0)?`<span>💵 promedio <b>${money(Math.round(f.costo/1.5/f.trab))}</b>/persona</span>`:''}
           ${pctLine}
         </div>
       </div>
