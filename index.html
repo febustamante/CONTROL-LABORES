@@ -9,45 +9,33 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --burdeo:#1B7A3D; --burdeo-osc:#0F5C2A; --dorado:#C4933F; --dorado-cl:#E4C883;
-  --crema:#F0F2EF; --papel:#FBFCFB; --tinta:#1C2B22; --gris:#7A8579;
-  --verde:#2E7D46; --verde-bg:#E8F3EC; --naranja:#C8621F; --naranja-bg:#FBEDE2;
-  --rojo:#B23A2E; --rojo-bg:#F8E7E4; --ambar:#B8860B; --linea:#E2E7E0;
-  --sidebar:#123A22; --sidebar-tx:#C9D8CD;
+  --burdeo:#0F5132; --burdeo-osc:#0F5132; --dorado:#198754; --dorado-cl:#66BB6A;
+  --crema:#F5F7FA; --papel:#FFFFFF; --tinta:#183A1D; --gris:#888888;
+  --verde:#198754; --verde-bg:#E8F3EC; --naranja:#F9A825; --naranja-bg:#FEF6E6;
+  --rojo:#D32F2F; --rojo-bg:#FBEAEA; --ambar:#F9A825; --linea:#EAEAEA;
+  --sidebar:#0F5132; --sidebar-tx:#C9D8CD; --sidebar-activo:#146C43;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--tinta);line-height:1.5;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
 
 /* HEADER */
-header{background:linear-gradient(135deg,var(--burdeo) 0%,var(--burdeo-osc) 100%);color:#fff;padding:0;position:relative;overflow:hidden}
-header::after{content:"";position:absolute;right:-60px;top:-70px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06)}
-.headerBar{display:flex;align-items:center;gap:24px;padding:14px 20px;position:relative;z-index:1}
+header{background:#fff;color:var(--tinta);padding:0;position:relative;border-bottom:1px solid var(--linea)}
+.headerBar{display:flex;align-items:center;gap:24px;padding:0 32px;height:80px;position:relative;z-index:1}
 .hbBrand{display:flex;align-items:center;gap:12px;flex-shrink:0}
-.hbLogo{width:52px;height:52px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;padding:5px;flex-shrink:0}
+.hbLogo{width:48px;height:48px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;padding:2px;flex-shrink:0;border:1px solid var(--linea)}
 .hbLogo img{max-width:100%;max-height:100%;object-fit:contain;mix-blend-mode:multiply}
-.hbTitle{font-family:'Fraunces',serif;font-weight:900;font-size:22px;line-height:1.05;color:#fff}
-.hbRep{font-size:11.5px;color:#D8E6DC;margin-top:2px}
-.hbRep b{color:#fff}
-.hbKpis{display:flex;gap:26px;flex:1;justify-content:center;flex-wrap:wrap}
-.hbKpi{text-align:center}
-.hbKpi .v{font-family:'Fraunces',serif;font-weight:900;font-size:23px;line-height:1;color:#fff}
-.hbKpi .l{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:#B9CFBF;font-weight:700;margin-top:4px}
-.hbKpi .v.ok{color:#8FE0A8} .hbKpi .v.warn{color:#F0C070} .hbKpi .v.bad{color:#F0A090}
-.hbUser{flex-shrink:0;text-align:right}
-.hbUser .who{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);padding:7px 14px;border-radius:22px;font-size:12px;font-weight:600;color:#fff}
-.hbUser .who button{background:none;border:0;color:var(--dorado-cl);cursor:pointer;font-family:inherit;font-weight:700;font-size:12px;text-decoration:underline}
-@media(max-width:900px){.headerBar{flex-wrap:wrap;gap:12px}.hbKpis{order:3;width:100%;justify-content:space-around}}
+.hbTitle{font-family:'Fraunces',serif;font-weight:700;font-size:26px;line-height:1.05;color:var(--tinta)}
+.hbRep{font-size:12px;color:var(--gris);margin-top:2px}
+.hbRep b{color:var(--tinta)}
+.hbUser{flex-shrink:0;text-align:right;margin-left:auto}
+.hbUser .who{display:inline-flex;align-items:center;gap:8px;background:var(--crema);border:1px solid var(--linea);padding:8px 15px;border-radius:22px;font-size:13px;font-weight:600;color:var(--tinta)}
+.hbUser .who button{background:none;border:0;color:var(--verde);cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;text-decoration:underline}
+@media(max-width:900px){.headerBar{flex-wrap:wrap;gap:12px;height:auto;padding:14px 20px}}
 
 
-/* KPIs */
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:26px 0 10px}
-.kpi{background:var(--papel);border:1px solid var(--linea);border-radius:14px;padding:16px 18px;position:relative}
-.kpi .lbl{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--gris);font-weight:600;margin-bottom:6px}
-.kpi .val{font-family:'Fraunces',serif;font-size:34px;font-weight:900;line-height:1}
-.kpi .sub{font-size:11px;color:var(--gris);margin-top:5px}
-.kpi.acc-prelim .val{color:var(--naranja)} .kpi.acc-aprob .val{color:var(--verde)}
-.kpi.acc-burdeo .val{color:var(--burdeo)} .kpi.acc-azul .val{color:#2C5F8A}
+
+/* KPIs (definidos más abajo como .kpi2) */
 
 /* controles */
 .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:22px 0 16px}
@@ -59,15 +47,26 @@ header::after{content:"";position:absolute;right:-60px;top:-70px;width:200px;hei
 .filtroSel:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
 .search:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
 .count{font-size:12px;color:var(--gris);margin-left:auto}
-.sidebarFiltros{position:fixed;top:0;left:0;width:230px;height:100vh;background:var(--sidebar);color:var(--sidebar-tx);padding:22px 18px;overflow-y:auto;z-index:100}
-.sbHead{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.12)}
-.sbLogo{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
-.sbTitle{font-family:'Fraunces',serif;font-weight:900;font-size:15px;color:#fff;line-height:1.15}
+.sidebarFiltros{position:fixed;top:0;left:0;width:260px;height:100vh;background:var(--sidebar);color:var(--sidebar-tx);padding:20px 16px;overflow-y:auto;z-index:100;display:flex;flex-direction:column}
+.sbHead{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.12)}
+.sbLogo{width:42px;height:42px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;padding:3px;flex-shrink:0}
+.sbLogo img{max-width:100%;max-height:100%;object-fit:contain;mix-blend-mode:multiply}
+.sbTitle{font-family:'Fraunces',serif;font-weight:700;font-size:16px;color:#fff;line-height:1.15}
 .sbSub{font-size:11px;color:var(--sidebar-tx);opacity:.8}
-.sbGroup label{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--sidebar-tx);opacity:.7;font-weight:600;margin:12px 0 4px}
-.sbLimpiar{width:100%;border:1px solid rgba(255,255,255,.25);background:transparent;color:#fff;font-family:inherit;font-size:12px;font-weight:600;padding:10px;border-radius:9px;cursor:pointer;margin-top:18px}
-.sbLimpiar:hover{background:rgba(255,255,255,.1)}
-@media(max-width:900px){.sidebarFiltros{position:static;width:auto;height:auto;margin-bottom:16px}}
+.sbLabelFiltros{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--sidebar-tx);opacity:.7;font-weight:700;margin-bottom:8px}
+.sbLimpiarMini{background:none;border:0;color:var(--dorado-cl);cursor:pointer;font-family:inherit;font-size:10.5px;font-weight:700}
+.sbGroup{margin-bottom:16px}
+.sbNav{display:flex;flex-direction:column;gap:3px;border-top:1px solid rgba(255,255,255,.12);padding-top:14px}
+.sbNav a{display:flex;align-items:center;gap:9px;padding:11px 12px;border-radius:9px;color:var(--sidebar-tx);font-size:13.5px;font-weight:600;cursor:pointer;text-decoration:none;transition:background .12s}
+.sbNav a:hover{background:rgba(255,255,255,.07)}
+.sbNav a.activo{background:var(--sidebar-activo);color:#fff;border-left:3px solid var(--dorado-cl);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.navBadge{margin-left:auto;background:var(--rojo);color:#fff;border-radius:10px;padding:0 7px;font-size:11px;font-weight:700}
+.navBadge:empty{display:none}
+.sbFoot{margin-top:auto;padding-top:14px;font-size:11px;color:var(--sidebar-tx);opacity:.75;border-top:1px solid rgba(255,255,255,.12)}
+.filtroSel{width:100%;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:9px 11px;font-family:inherit;font-size:12.5px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;margin-bottom:6px}
+.filtroSel option{color:#183A1D}
+.filtroSel:focus{outline:2px solid var(--dorado-cl)}
+@media(max-width:900px){.sidebarFiltros{position:static;width:auto;height:auto}}
 
 /* SECCION CUARTELES */
 h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burdeo);margin:30px 0 4px;border-bottom:2px solid var(--dorado);padding-bottom:8px;display:inline-block}
@@ -86,6 +85,28 @@ h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burde
 .cq .leg i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
 .cq .presup{margin-top:9px;padding-top:9px;border-top:1px dashed var(--linea);font-size:11px;line-height:1.7}
 .cq .presup b{color:var(--tinta)}
+/* Fila de KPIs (spec: tarjetas blancas, 5 por fila, número 42px) */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
+.kpi2{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:20px 22px;box-shadow:0 1px 3px rgba(20,50,30,.05)}
+.kpiTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.kpiLbl{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--gris);font-weight:700}
+.kpiIc{width:34px;height:34px;border-radius:10px;background:var(--verde-bg);color:var(--verde);display:flex;align-items:center;justify-content:center;font-size:16px}
+.kpiIc.warn{background:var(--naranja-bg);color:var(--naranja)} .kpiIc.bad{background:var(--rojo-bg);color:var(--rojo)} .kpiIc.ok{background:var(--verde-bg);color:var(--verde)}
+.kpiVal{font-family:'Fraunces',serif;font-weight:900;font-size:34px;line-height:1;color:var(--tinta)}
+.kpiVal.warn{color:var(--naranja)} .kpiVal.bad{color:var(--rojo)} .kpiVal.ok{color:var(--verde)}
+.kpiBar{height:6px;background:#EEF1F0;border-radius:4px;margin:10px 0 8px;overflow:hidden}
+.kpiBarF{height:100%;border-radius:4px;background:var(--verde)}
+.kpiBarF.warn{background:var(--naranja)} .kpiBarF.bad{background:var(--rojo)} .kpiBarF.ok{background:var(--verde)}
+.kpiSub{font-size:12px;color:var(--gris);margin-top:6px}
+/* Panel ¿Qué requiere atención? */
+.atencion{display:flex;align-items:center;gap:28px;background:#fff;border:1px solid var(--linea);border-radius:16px;padding:20px 24px;box-shadow:0 1px 3px rgba(20,50,30,.05);margin-bottom:20px;flex-wrap:wrap}
+.atTitle{font-family:'Fraunces',serif;font-weight:900;font-size:18px;color:var(--tinta);line-height:1.1;flex-shrink:0}
+.atList{display:flex;gap:32px;flex:1;flex-wrap:wrap}
+.atItem{display:flex;align-items:center;gap:10px}
+.atIc{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.atIc.bad{background:var(--rojo-bg);color:var(--rojo)} .atIc.warn{background:var(--naranja-bg);color:var(--naranja)} .atIc.ok{background:var(--verde-bg);color:var(--verde)}
+.atTit{font-size:13.5px;font-weight:700;color:var(--tinta)} .atTit.bad{color:var(--rojo)} .atTit.warn{color:var(--naranja)} .atTit.ok{color:var(--verde)}
+.atSub{font-size:11.5px;color:var(--gris)}
 /* Panel gerencial — paleta sobria */
 .gerKpiRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
 .gerKpi{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 3px rgba(60,40,20,.04);position:relative}
@@ -176,7 +197,7 @@ footer b{color:var(--burdeo)}
 .whoami{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);color:#fff;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;margin-top:12px}
 .whoami button{background:none;border:0;color:var(--dorado-cl);cursor:pointer;font-family:inherit;font-weight:700;font-size:12px;text-decoration:underline}
 #app{display:none}
-#app.conSidebar{padding-left:230px}
+#app.conSidebar{padding-left:260px}
 @media(max-width:900px){#app.conSidebar{padding-left:0}}
 
 </style>
@@ -204,15 +225,11 @@ footer b{color:var(--burdeo)}
 
 <div id="app">
 <header>
-  <div class="wrap headerBar">
+  <div class="headerBar">
     <div class="hbBrand">
       <div class="hbLogo"><img id="hbLogoImg" alt="Agrícola San José"></div>
-      <div>
-        <div class="hbTitle">Control de Folios</div>
-        <div class="hbRep">Reporte al <b id="fechaRep">—</b></div>
-      </div>
+      <div><div class="hbTitle">Panel Gerencial</div><div class="hbRep">Reporte al <b id="fechaRep">—</b></div></div>
     </div>
-    <div class="hbKpis" id="hbKpis"></div>
     <div class="hbUser" id="hbUser"></div>
   </div>
 </header>
@@ -241,55 +258,71 @@ footer b{color:var(--burdeo)}
 
   <aside class="sidebarFiltros">
     <div class="sbHead">
-      <div class="sbLogo">🍇</div>
+      <div class="sbLogo"><img id="sbLogoImg" alt=""></div>
       <div><div class="sbTitle">Agrícola San José</div><div class="sbSub">Control de Labores</div></div>
     </div>
     <div class="sbGroup">
-      <label>Presupuesto</label>
+      <div class="sbLabelFiltros">Filtros <button id="limpiarFiltros" class="sbLimpiarMini">↺ Limpiar</button></div>
       <select id="fPresup" class="filtroSel"><option value="">Presupuestada y no</option><option value="si">Solo presupuestadas</option><option value="no">Solo NO presupuestadas</option></select>
-      <label>Grupo de labor</label>
       <select id="fGrupoLabor" class="filtroSel"><option value="">Todos los grupos labor</option></select>
-      <label>Campo</label>
       <select id="fCampo" class="filtroSel"><option value="">Todos los campos</option></select>
-      <label>Variedad</label>
       <select id="fVariedad" class="filtroSel"><option value="">Todas las variedades</option></select>
-      <label>Labor</label>
       <select id="fLabor" class="filtroSel"><option value="">Todas las labores</option></select>
-      <label>Cuartel</label>
       <select id="fCuartel" class="filtroSel"><option value="">Todos los cuarteles</option></select>
-      <button id="limpiarFiltros" class="sbLimpiar">Limpiar filtros</button>
     </div>
+    <nav class="sbNav" id="sbNav">
+      <a data-vista="resumen" class="activo">▦ Resumen Ejecutivo</a>
+      <a data-vista="labores">◷ Labores</a>
+      <a data-vista="cuarteles">▤ Cuarteles</a>
+      <a data-vista="excedidos">⚠ Excedidos <span class="navBadge" id="navBadgeExc"></span></a>
+      <a data-vista="folios">▣ Folios</a>
+    </nav>
+    <div class="sbFoot" id="sbFoot"></div>
   </aside>
 
+  <!-- VISTA: RESUMEN EJECUTIVO -->
+  <section class="vista" data-vista="resumen">
   <div id="resumenNoPresup" style="margin-bottom:14px"></div>
-  <div style="margin-bottom:14px">
-    <button id="btnExcedidos" style="border:1px solid var(--linea);background:#fff;color:var(--tinta);font-family:inherit;font-size:13px;font-weight:600;padding:9px 16px;border-radius:10px;cursor:pointer">Ver excedidos</button>
-    <div id="alertaExcedidos" style="display:none;margin-top:12px"></div>
-  </div>
 
   <div class="kpis" id="kpis"></div>
 
-  <h2 style="display:flex;align-items:center;gap:10px">Panel Gerencial
-    <button id="togGer" style="border:1px solid var(--linea);background:var(--papel);color:var(--burdeo);font-family:inherit;font-size:11px;font-weight:600;padding:4px 12px;border-radius:14px;cursor:pointer">Mostrar</button>
-    <span class="hint" style="font-weight:400;font-size:11px;margin:0">— responde a los filtros de abajo</span>
-  </h2>
-  <div id="panelGer" style="display:none">
-    <div class="gerKpiRow" id="gerKpis"></div>
+  <div id="panelAtencion" class="atencion"></div>
+
+  <div id="panelGer">
     <div class="gerGrid">
-      <div class="gerCard wide"><h3>Presupuesto vs real por labor</h3><p class="hint" style="margin:0 0 10px">Presupuesto anual = precio × plantas de TODOS los cuarteles con esa labor. Verde &lt;85% · ámbar 85–100% · rojo &gt;100%.</p><div id="gerPresup"></div></div>
+      <div class="gerCard wide"><h3>Presupuesto vs gasto por labor</h3><p class="hint" style="margin:0 0 10px">Presupuesto anual = precio × plantas de TODOS los cuarteles con esa labor. Verde &lt;85% · ámbar 85–100% · rojo &gt;100%.</p><div id="gerPresup"></div></div>
       <div class="gerCard wide"><h3>Avance físico por labor</h3><p class="hint" style="margin:0 0 10px">% de plantas trabajadas sobre el total presupuestado de cada labor.</p><div id="gerAvance"></div></div>
       <div class="gerCard"><h3>Gasto por campo</h3><div id="gerCampo"></div></div>
       <div class="gerCard"><h3>Gasto por grupo de labor</h3><div id="gerGrupoLab"></div></div>
-      <div class="gerCard wide"><h3>Avance de cuarteles por labor</h3><p class="hint" style="margin:0 0 10px">Elige una <b>labor</b> para ver qué cuarteles están completos (≥95%), en progreso o sin empezar (&lt;5%).</p><div id="gerResumen"></div></div>
-      <div class="gerCard wide"><h3>Riesgo administrativo: preliminares pendientes</h3><div id="gerRiesgo"></div></div>
+      <div class="gerFoot" id="gerFoot" style="grid-column:1/-1"></div>
     </div>
-    <div class="gerFoot" id="gerFoot"></div>
   </div>
+  </section>
 
+  <!-- VISTA: CUARTELES -->
+  <section class="vista" data-vista="cuarteles" style="display:none">
   <h2>Avance por cuartel</h2>
-  <p class="hint">Verde = aprobado · naranja = preliminar. Elige una <b>labor</b> en los filtros de arriba para ver el % de avance.</p>
+  <p class="hint">Verde = aprobado · naranja = preliminar. Elige una <b>labor</b> en los filtros para ver el % de avance.</p>
+  <div id="gerResumenWrap" class="gerCard wide" style="margin-bottom:16px"><h3>Resumen de cuarteles por labor</h3><p class="hint" style="margin:0 0 10px">Completos (≥95%) · en progreso · sin empezar (&lt;5%).</p><div id="gerResumen"></div></div>
   <div class="cuarteles" id="cuarteles"></div>
+  </section>
 
+  <!-- VISTA: LABORES -->
+  <section class="vista" data-vista="labores" style="display:none">
+  <h2>Detalle por labor</h2>
+  <p class="hint">Presupuesto, gasto y avance de cada labor. Usa los filtros para acotar.</p>
+  <div class="gerCard wide"><div id="laboresDetalle"></div></div>
+  </section>
+
+  <!-- VISTA: EXCEDIDOS -->
+  <section class="vista" data-vista="excedidos" style="display:none">
+  <h2>Excedidos</h2>
+  <p class="hint">Todos los excedidos de tu operación (respeta tu rol, ignora los filtros).</p>
+  <div id="alertaExcedidos"></div>
+  </section>
+
+  <!-- VISTA: FOLIOS -->
+  <section class="vista" data-vista="folios" style="display:none">
   <h2>Folios para revisar</h2>
   <div class="bar">
     <div class="seg" id="filtro">
@@ -302,8 +335,11 @@ footer b{color:var(--burdeo)}
   </div>
   <div class="folios" id="folios"></div>
 
+  <div class="gerCard wide" style="margin-top:16px"><h3>Riesgo administrativo: preliminares antiguos</h3><div id="gerRiesgo"></div></div>
+  </section>
+
   <footer>
-    <b>Cómo leer las plantas:</b> solo cuentan las líneas <b>TRATO</b> (pago por unidad). Las líneas <b>DIARIO</b> son jornada/asistencia y por eso muestran 0 plantas — es correcto.<br>
+    <b>Cómo leer las plantas:</b> cuentan las líneas <b>TRATO</b> y las <b>DIARIO con más de 1 planta</b>. Las líneas DIARIO=1 son jornada/asistencia y no cuentan como plantas.<br>
     <b>Datos en vivo desde Supabase.</b> El admin carga los folios del día con el PIN de administrador; los demás solo consultan.
   </footer>
 </div>
@@ -437,6 +473,7 @@ async function entrar(codigo){
   if(window.ES_ADMIN){ document.getElementById("zonaCarga").style.display="block"; }
   // logo
   const li=document.getElementById("hbLogoImg"); if(li) li.src=LOGO_SJ;
+  const sli=document.getElementById("sbLogoImg"); if(sli) sli.src=LOGO_SJ;
   // usuario a la derecha
   const ambito = u.grupos ? u.grupos.map(g=>g.charAt(0)+g.slice(1).toLowerCase()).join(" · ") : "Todos los campos";
   const hu=document.getElementById("hbUser");
@@ -473,26 +510,30 @@ function alerta(f){
   return {cls:"a-ok",txt:f.dias+" días"};
 }
 
-// ====== PANEL GERENCIAL (usa FOLIOS ya filtrado por rol) ======
-document.getElementById("togGer").addEventListener("click",()=>{
-  const p=document.getElementById("panelGer");
-  const abierto=p.style.display!=="none";
-  p.style.display=abierto?"none":"block";
-  document.getElementById("togGer").textContent=abierto?"Mostrar":"Ocultar";
+// ====== NAVEGACIÓN POR VISTAS ======
+function cambiarVista(v){
+  document.querySelectorAll(".vista").forEach(s=>s.style.display = s.dataset.vista===v ? "block":"none");
+  document.querySelectorAll("#sbNav a").forEach(a=>a.classList.toggle("activo", a.dataset.vista===v));
+  window.scrollTo(0,0);
+}
+document.getElementById("sbNav").addEventListener("click",e=>{
+  const a=e.target.closest("a"); if(!a) return;
+  e.preventDefault(); cambiarVista(a.dataset.vista);
 });
 
 function barras(contId, pares, colorFn){
+  const el=document.getElementById(contId); if(!el) return;
   const max=Math.max(...pares.map(p=>p[1]),1);
-  document.getElementById(contId).innerHTML = pares.map(([k,v])=>{
+  el.innerHTML = pares.map(([k,v])=>{
     const w=Math.round(v/max*100);
-    const color=colorFn?colorFn(k,v):'#9AA88C';
+    const color=colorFn?colorFn(k,v):'#66BB6A';
     return `<div class="gbar"><div class="glbl"><span>${k}</span><b>${money(v)}</b></div>
       <div class="gtrack"><div class="gfill" style="width:${w}%;background:${color}"></div></div></div>`;
   }).join("") || '<p class="empty">Sin datos.</p>';
 }
 
 function drawGerencial(){
-  if(!document.getElementById("gerKpis")) return;
+  if(!document.getElementById("gerPresup")) return;
   const D = aplicarCascada(FOLIOS,5);
   const aprob=D.filter(f=>f.estado==="APROBADO");
   const prelim=D.filter(f=>f.estado==="PRELIMINAR");
@@ -527,26 +568,9 @@ function drawGerencial(){
     }
   });
   let presupGlobal=0, realGlobal=0;
-  Object.values(porLaborPresup).forEach(d=>{presupGlobal+=d.presup; realGlobal+=Math.min(d.real,d.presup*3);});
-  // real global: sumamos el real de labores presupuestadas
-  realGlobal=Object.values(porLaborPresup).reduce((s,d)=>s+d.real,0);
+  Object.values(porLaborPresup).forEach(d=>{presupGlobal+=d.presup; realGlobal+=d.real;});
   const consumoGlobal=presupGlobal>0?Math.round(realGlobal/presupGlobal*100):null;
-
-  // ===== KPI cards =====
-  const p3=prelim.filter(f=>f.dias>3).length;
-  const semColor=pc=>pc>100?'var(--rojo)':(pc>85?'#C8621F':'#2E7D46');
-  const semFill=pc=>pc>100?'#C0483B':(pc>85?'#D68A3A':'#4E9A5F');
-  const kpi=(lbl,val,sub,ic,extra="")=>`<div class="gerKpi">
-    <div class="ic">${ic}</div><div class="lbl">${lbl}</div><div class="val">${val}</div>
-    ${sub?`<div class="sub">${sub}</div>`:""}${extra}</div>`;
-  document.getElementById("gerKpis").innerHTML =
-    kpi("Gasto total", money(costoTotal), `Aprob: ${money(costoAprob)} · Prelim: ${money(costoPrelim)}`, "$")+
-    kpi("Presupuesto consumido", consumoGlobal!==null?consumoGlobal+"%":"—",
-        consumoGlobal!==null?`${money(realGlobal)} de ${money(presupGlobal)}`:"sin labores presupuestadas","%",
-        consumoGlobal!==null?`<div class="ptrack"><div class="pfill" style="width:${Math.min(100,consumoGlobal)}%;background:${semFill(consumoGlobal)}"></div></div>`:"")+
-    kpi("Costo por planta", "$"+num(costoPorPlanta), num(plantasTrab)+" plantas trabajadas", "◷")+
-    kpi("Folios pendientes", prelim.length, p3+" con más de 3 días", "!")+
-    kpi("Labores en curso", laboresEnCurso, "actividades en ejecución", "≡");
+  const semColor=pc=>pc>100?'var(--rojo)':(pc>85?'var(--naranja)':'var(--verde)');
 
   // ===== Presupuesto vs real por labor =====
   const filasP=Object.entries(porLaborPresup).sort((a,b)=>b[1].presup-a[1].presup);
@@ -582,6 +606,7 @@ function drawGerencial(){
 
   // ===== Avance de cuarteles por labor (completos/en progreso/sin empezar) =====
   const cRes=document.getElementById("gerResumen");
+  if(cRes){
   if(!fLabor){
     cRes.innerHTML='<p class="empty">Elige una <b>labor</b> en los filtros de arriba para ver el avance de cuarteles.</p>';
   } else {
@@ -635,13 +660,17 @@ function drawGerencial(){
         ${items.map(x=>`<div title="${x.c}: ${x.av}%" style="background:${col(x.estado)};color:${txtcol(x.estado)};text-align:center;padding:7px 2px;border-radius:6px;font-size:11px">${x.c}<div style="font-size:9px;opacity:.85">${x.av}%</div></div>`).join("")}
       </div>`;
   }
+  }
 
   // ===== Riesgo: preliminares antiguos =====
+  const elRiesgo=document.getElementById("gerRiesgo");
+  if(elRiesgo){
   const riesgo=prelim.filter(f=>f.dias>3).sort((a,b)=>b.dias-a.dias).slice(0,10);
-  document.getElementById("gerRiesgo").innerHTML = riesgo.length
+  elRiesgo.innerHTML = riesgo.length
     ? `<table class="gtabla"><tr><th>Folio</th><th>Cuartel</th><th>Labor</th><th>Encargado</th><th style="text-align:right">Días</th><th style="text-align:right">Costo</th></tr>`+
       riesgo.map(f=>`<tr><td><b>${f.folio}</b></td><td>${f.cuartel}</td><td>${f.labor}</td><td>${f.encargado}</td><td class="num" style="color:${f.dias>7?'var(--rojo)':'#C8621F'};font-weight:700">${f.dias}</td><td class="num">${money(f.costo)}</td></tr>`).join("")+`</table>`
     : '<p class="empty">✓ Sin preliminares antiguos. Todo al día.</p>';
+  }
 
   // ===== Pie de métricas =====
   const dotacion=D.reduce((s,f)=>s+f.trab,0);
@@ -681,62 +710,119 @@ function aplicarCascada(base, hasta){
 
 function render(){
   document.getElementById("fechaRep").textContent = REPORTE;
-  const tot=FOLIOS.length;
-  const prelim=FOLIOS.filter(f=>f.estado==="PRELIMINAR").length;
-  const aprob=tot-prelim;
-  const p3=FOLIOS.filter(f=>f.estado==="PRELIMINAR"&&f.dias>3).length;
-  const pAp=FOLIOS.filter(f=>f.estado==="APROBADO").reduce((s,f)=>s+f.plantas,0);
-  const pPr=FOLIOS.filter(f=>f.estado==="PRELIMINAR").reduce((s,f)=>s+f.plantas,0);
-  const kpis=[
-    {lbl:"Total folios",val:tot,cls:""},
-    {lbl:"Preliminares",val:prelim,cls:"acc-prelim",sub:p3+" con más de 3 días"},
-    {lbl:"Aprobados",val:aprob,cls:"acc-aprob"},
-    {lbl:"Plantas comprometidas",val:num(pAp+pPr),cls:"acc-burdeo",sub:num(pAp)+" aprob · "+num(pPr)+" prelim"},
-  ];
-  document.getElementById("kpis").innerHTML=kpis.map(k=>
-    `<div class="kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub?`<div class="sub">${k.sub}</div>`:""}</div>`).join("");
+  // ===== Cálculos globales (todos los datos del rol, sin filtros de vista) =====
+  const D=FOLIOS;
+  const tot=D.length;
+  const prelim=D.filter(f=>f.estado==="PRELIMINAR");
+  const aprobados=D.filter(f=>f.estado==="APROBADO");
+  const p3=prelim.filter(f=>f.dias>3).length;
+  const plantasTrab=D.reduce((s,f)=>s+f.plantas,0);
+  const gastoTotal=D.reduce((s,f)=>s+f.costo,0);
+  const dotacion=D.reduce((s,f)=>s+f.trab,0);
+  const costoPorPlanta=plantasTrab>0?Math.round(gastoTotal/plantasTrab):0;
+  const laboresActivas=new Set(D.map(f=>f.labor)).size;
+
+  // presupuesto: por labor+cuartel presupuestado (todos)
+  const realN={}; D.forEach(f=>{const n=normLabor(f.labor);realN[n]=(realN[n]||0)+f.costo;});
+  const labsD=new Set(D.map(f=>normLabor(f.labor)));
+  let presupTotal=0, plantasPresup=0, realPresup=0;
+  const labsPresup=new Set();
+  Object.keys(PRESUPUESTO).forEach(k=>{ const [ln,cua]=k.split("|"); const pl=PLANTAS_TOTALES[cua];
+    if(pl && labsD.has(ln)){ presupTotal+=PRESUPUESTO[k]*pl; plantasPresup+=pl; labsPresup.add(ln); } });
+  labsPresup.forEach(n=>{ realPresup+=realN[n]||0; });
+  const consumo=presupTotal>0?Math.round(realPresup/presupTotal*100):null;
+  const presupRestante=presupTotal-realPresup;
+  const avanceFisico=plantasPresup>0?Math.round(plantasTrab/plantasPresup*100):null;
+
+  // cuarteles por estado (según su avance, tomando la labor de cada folio)
+  const plCuartel={}; D.forEach(f=>{ if(f.cuartel){plCuartel[f.cuartel]=(plCuartel[f.cuartel]||0)+f.plantas;} });
+  let cComp=0,cProc=0,cSin=0;
+  const cuartelesConDatos=Object.keys(PLANTAS_TOTALES);
+  cuartelesConDatos.forEach(c=>{ const tp=PLANTAS_TOTALES[c]; const tr=plCuartel[c]||0;
+    const av=tp>0?tr/tp*100:0; if(av>=95)cComp++; else if(av>=5)cProc++; else cSin++; });
+  const totCuarteles=cuartelesConDatos.length||1;
+  const pctComp=Math.round(cComp/totCuarteles*100);
+
+  // excedidos
+  let exc=0; const realLC={},plLC={};
+  D.forEach(f=>{ const k=normLabor(f.labor)+"|"+(f.cuartel||"").toUpperCase(); realLC[k]=(realLC[k]||0)+f.costo;
+    const k2=f.labor+"|"+(f.cuartel||""); plLC[k2]=(plLC[k2]||0)+f.plantas; });
+  Object.entries(realLC).forEach(([k,r])=>{const pr=PRESUPUESTO[k],pl=PLANTAS_TOTALES[k.split("|")[1]];if(pr!=null&&pl&&r/(pr*pl)*100>100)exc++;});
+  Object.entries(plLC).forEach(([k,p])=>{const cua=k.split("|")[1],t=PLANTAS_TOTALES[cua];if(t&&p/t*100>105)exc++;});
+
+  // ===== Fila de KPIs (spec) =====
+  const sem=v=>v>100?'bad':(v>85?'warn':'ok');
+  const K=(lbl,val,sub,ic,cls="",bar=null)=>`<div class="kpi2">
+     <div class="kpiTop"><span class="kpiLbl">${lbl}</span><span class="kpiIc ${cls}">${ic}</span></div>
+     <div class="kpiVal ${cls}">${val}</div>
+     ${bar!=null?`<div class="kpiBar"><div class="kpiBarF ${cls}" style="width:${Math.min(100,bar)}%"></div></div>`:""}
+     <div class="kpiSub">${sub}</div></div>`;
+  document.getElementById("kpis").innerHTML =
+    K("Presupuesto consumido", consumo!=null?consumo+"%":"—", consumo!=null?`${money(realPresup)} de ${money(presupTotal)}`:"sin presupuesto", "◔", consumo!=null?sem(consumo):"", consumo)+
+    K("Presupuesto restante", money(presupRestante>0?presupRestante:0), presupTotal>0?Math.round(presupRestante/presupTotal*100)+"% disponible":"—", "◈")+
+    K("Plantas trabajadas", num(plantasTrab), `de ${num(plantasPresup)} presupuestadas`, "🌿", "", avanceFisico)+
+    K("Costo por planta", "$"+num(costoPorPlanta), "Gasto ÷ plantas trabajadas", "◇")+
+    K("Avance físico", avanceFisico!=null?avanceFisico+"%":"—", "de la temporada", "▲", "", avanceFisico)+
+    K("Cuarteles completos", cComp+"/"+totCuarteles, pctComp+"% del total · "+cProc+" en proceso", "▤")+
+    K("Folios pendientes", prelim.length, p3+" con más de 3 días", "◷", p3?"warn":"")+
+    K("Excedidos", exc, exc?"revisar sobrecostos":"todo en rango", "⚠", exc?"bad":"ok");
+
+  // ===== Panel ¿Qué requiere atención hoy? =====
+  drawAtencion({exc, p3, consumo, cSin, labsPresupObj:{realN}});
+
   poblarFiltros();
   drawExcedidos();
   drawResumenNoPresup();
   drawCuarteles();
   drawFolios();
+  drawLaboresDetalle();
   drawGerencial();
-  drawHeaderKpis();
 }
 
-// KPIs ejecutivos compactos en la barra superior (usan FOLIOS del rol, sin filtros)
-function drawHeaderKpis(){
-  const cont=document.getElementById("hbKpis"); if(!cont) return;
-  const costoTotal=FOLIOS.reduce((s,f)=>s+f.costo,0);
-  const plantasTrab=FOLIOS.reduce((s,f)=>s+f.plantas,0);
-  // presupuesto consumido global (labores presupuestadas)
-  let presup=0, real=0;
-  const labN={};
-  FOLIOS.forEach(f=>{ const n=normLabor(f.labor); labN[n]=(labN[n]||0)+f.costo; });
-  const vistos=new Set();
-  Object.keys(PRESUPUESTO).forEach(k=>{
-    const [ln,cua]=k.split("|"); const pl=PLANTAS_TOTALES[cua];
-    if(pl && [...new Set(FOLIOS.map(f=>normLabor(f.labor)))].includes(ln)){ presup+=PRESUPUESTO[k]*pl; }
-  });
-  Object.entries(labN).forEach(([n,v])=>{ if(Object.keys(PRESUPUESTO).some(k=>k.startsWith(n+"|"))) real+=v; });
-  const consumo=presup>0?Math.round(real/presup*100):null;
-  // excedidos (plata + plantas) — reusa lógica simple
-  let exc=0;
-  const realLC={}, plLC={};
-  FOLIOS.forEach(f=>{ const k=normLabor(f.labor)+"|"+(f.cuartel||"").toUpperCase();
-    realLC[k]=(realLC[k]||0)+f.costo;
-    const k2=f.labor+"|"+(f.cuartel||""); plLC[k2]=(plLC[k2]||0)+f.plantas; });
-  Object.entries(realLC).forEach(([k,r])=>{ const pr=PRESUPUESTO[k], pl=PLANTAS_TOTALES[k.split("|")[1]];
-    if(pr!=null&&pl&&r/(pr*pl)*100>100) exc++; });
-  Object.entries(plLC).forEach(([k,p])=>{ const cua=k.split("|")[1], tot=PLANTAS_TOTALES[cua];
-    if(tot&&p/tot*100>105) exc++; });
+// Panel de alertas automáticas
+function drawAtencion(ctx){
+  const cont=document.getElementById("panelAtencion"); if(!cont) return;
+  const D=FOLIOS;
+  const alertas=[];
+  // labores sobre presupuesto
+  const realN={}; D.forEach(f=>{const n=normLabor(f.labor);realN[n]=(realN[n]||0)+f.costo;});
+  const presupN={}; Object.keys(PRESUPUESTO).forEach(k=>{const [ln,cua]=k.split("|");const pl=PLANTAS_TOTALES[cua];if(pl)presupN[ln]=(presupN[ln]||0)+PRESUPUESTO[k]*pl;});
+  let sobre=0, cerca=0, laborCerca="";
+  Object.keys(presupN).forEach(n=>{ if(realN[n]){ const pc=realN[n]/presupN[n]*100;
+    if(pc>100)sobre++; else if(pc>85){cerca++; if(!laborCerca)laborCerca=n;} }});
+  // cuartel detenido: sin folios recientes (usamos dias del preliminar más viejo por cuartel como proxy simple)
+  // folios preliminares > 3 dias
+  const p3=D.filter(f=>f.estado==="PRELIMINAR"&&f.dias>3).length;
+  // excedidos plantas (error registro)
+  let errReg=0; const plLC={}; D.forEach(f=>{const k=f.cuartel;if(k)plLC[k]=(plLC[k]||0)+f.plantas;});
+  Object.entries(plLC).forEach(([c,p])=>{const t=PLANTAS_TOTALES[c];if(t&&p/t*100>105)errReg++;});
 
-  const consumoCls=consumo>100?'bad':(consumo>85?'warn':'ok');
-  cont.innerHTML=
-    `<div class="hbKpi"><div class="v">${money(costoTotal)}</div><div class="l">Gasto total</div></div>
-     <div class="hbKpi"><div class="v ${consumo!=null?consumoCls:''}">${consumo!=null?consumo+'%':'—'}</div><div class="l">Presup. consumido</div></div>
-     <div class="hbKpi"><div class="v">${num(plantasTrab)}</div><div class="l">Plantas trabajadas</div></div>
-     <div class="hbKpi"><div class="v ${exc?'bad':'ok'}">${exc}</div><div class="l">Excedidos</div></div>`;
+  const item=(ic,cls,tit,sub)=>`<div class="atItem"><span class="atIc ${cls}">${ic}</span><div><div class="atTit ${cls}">${tit}</div><div class="atSub">${sub}</div></div></div>`;
+  if(sobre) alertas.push(item("▲","bad",`${sobre} labor(es) sobre presupuesto`,"Revisar en Excedidos"));
+  if(errReg) alertas.push(item("⚠","bad",`${errReg} cuartel(es) con exceso de plantas`,"Posible error de registro"));
+  if(p3) alertas.push(item("◷","warn",`${p3} folios preliminares`,"Con más de 3 días sin aprobar"));
+  if(cerca) alertas.push(item("◔","warn",`${cerca} labor(es) cerca del límite`,"Consumen 85–100% del presupuesto"));
+  if(!alertas.length) alertas.push(item("✓","ok","Todo bajo control","Sin alertas críticas hoy"));
+
+  cont.innerHTML=`<div class="atTitle">¿QUÉ REQUIERE<br>ATENCIÓN HOY?</div><div class="atList">${alertas.join("")}</div>`;
+}
+
+// Vista Labores: tabla detallada
+function drawLaboresDetalle(){
+  const cont=document.getElementById("laboresDetalle"); if(!cont) return;
+  const D=aplicarCascada(FOLIOS,5);
+  const realN={},plN={},labUp={};
+  D.forEach(f=>{const n=normLabor(f.labor);realN[n]=(realN[n]||0)+f.costo;plN[n]=(plN[n]||0)+f.plantas;labUp[n]=f.labor;});
+  const presupN={},plPresupN={};
+  Object.keys(PRESUPUESTO).forEach(k=>{const [ln,cua]=k.split("|");if(!cuartelPasaFiltro(cua))return;const pl=PLANTAS_TOTALES[cua];if(pl){presupN[ln]=(presupN[ln]||0)+PRESUPUESTO[k]*pl;plPresupN[ln]=(plPresupN[ln]||0)+pl;}});
+  const rows=Object.keys(realN).map(n=>{
+    const presup=presupN[n]||0, real=realN[n], pc=presup>0?Math.round(real/presup*100):null;
+    const av=plPresupN[n]>0?Math.round(plN[n]/plPresupN[n]*100):null;
+    return {labor:labUp[n],presup,real,pc,av,pl:plN[n]};
+  }).sort((a,b)=>b.real-a.real);
+  const sem=v=>v>100?'var(--rojo)':(v>85?'var(--naranja)':'var(--verde)');
+  cont.innerHTML=`<table class="gtabla"><tr><th>Labor</th><th style="text-align:right">Presupuesto</th><th style="text-align:right">Gastado</th><th style="text-align:right">Consumo</th><th style="text-align:right">Avance físico</th><th style="text-align:right">Plantas</th></tr>`+
+    rows.map(r=>`<tr><td>${r.labor}</td><td class="num">${r.presup?money(r.presup):'—'}</td><td class="num">${money(r.real)}</td><td class="num" style="color:${r.pc!=null?sem(r.pc):'var(--gris)'};font-weight:700">${r.pc!=null?r.pc+'%':'sin pres.'}</td><td class="num">${r.av!=null?r.av+'%':'—'}</td><td class="num">${num(r.pl)}</td></tr>`).join("")+`</table>`;
 }
 
 // Resumen que aparece SOLO al elegir "No presupuestadas": labores sin presupuesto + plata,
@@ -800,12 +886,10 @@ function drawExcedidos(){
       if(pc>105) excPlantas.push({cuartel:d.cuartel,labor:d.labor,total,pl:d.pl,pc}); } });
   excPlantas.sort((a,b)=>b.pc-a.pc);
 
-  // actualizar el texto del botón con el contador
-  const btn=document.getElementById("btnExcedidos");
+  // actualizar el badge del nav con el contador
   const totalExc=excPlata.length+excPlantas.length;
-  if(btn) btn.innerHTML = totalExc
-    ? `⚠ Ver excedidos <span style="background:var(--rojo);color:#fff;border-radius:10px;padding:1px 8px;font-size:12px;margin-left:4px">${totalExc}</span>`
-    : `✓ Ver excedidos (ninguno)`;
+  const badge=document.getElementById("navBadgeExc");
+  if(badge) badge.textContent = totalExc || "";
 
   if(!excPlata.length && !excPlantas.length){
     cont.innerHTML=`<div style="background:var(--verde-bg);border:1px solid var(--verde);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--verde);font-weight:600">✓ Todo dentro de presupuesto y avance. Sin excedidos.</div>`;
@@ -984,10 +1068,6 @@ async function anularFolio(folio){
   }
 }
 
-document.getElementById("btnExcedidos").addEventListener("click",()=>{
-  const el=document.getElementById("alertaExcedidos");
-  el.style.display = el.style.display==="none" ? "block" : "none";
-});
 document.getElementById("filtro").addEventListener("click",e=>{
   if(e.target.tagName!=="BUTTON")return;
   document.querySelectorAll("#filtro button").forEach(b=>b.classList.remove("on"));
