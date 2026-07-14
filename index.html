@@ -9,10 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --burdeo:#7B2D2D; --burdeo-osc:#5F2020; --dorado:#C4933F; --dorado-cl:#E4C883;
-  --crema:#F5F1EA; --papel:#FBF9F5; --tinta:#2A2320; --gris:#8A8178;
+  --burdeo:#1B7A3D; --burdeo-osc:#0F5C2A; --dorado:#C4933F; --dorado-cl:#E4C883;
+  --crema:#F0F2EF; --papel:#FBFCFB; --tinta:#1C2B22; --gris:#7A8579;
   --verde:#2E7D46; --verde-bg:#E8F3EC; --naranja:#C8621F; --naranja-bg:#FBEDE2;
-  --rojo:#B23A2E; --rojo-bg:#F8E7E4; --ambar:#B8860B; --linea:#E5DED2;
+  --rojo:#B23A2E; --rojo-bg:#F8E7E4; --ambar:#B8860B; --linea:#E2E7E0;
+  --sidebar:#123A22; --sidebar-tx:#C9D8CD;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--tinta);line-height:1.5;-webkit-font-smoothing:antialiased}
@@ -42,11 +43,19 @@ h1{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(26px,4vw,40px);l
 .seg button{border:0;background:transparent;padding:9px 15px;font-family:inherit;font-size:13px;font-weight:600;color:var(--gris);cursor:pointer;transition:.15s}
 .seg button.on{background:var(--burdeo);color:#fff}
 .search{flex:1;min-width:180px;border:1px solid var(--linea);border-radius:10px;padding:9px 13px;font-family:inherit;font-size:13px;background:var(--papel);color:var(--tinta)}
-.filtroSel{flex:1;min-width:140px;border:1px solid var(--linea);border-radius:10px;padding:9px 11px;font-family:inherit;font-size:13px;background:#fff;color:var(--tinta);cursor:pointer}
+.filtroSel{width:100%;border:1px solid var(--linea);border-radius:9px;padding:9px 11px;font-family:inherit;font-size:13px;background:#fff;color:var(--tinta);cursor:pointer;margin-bottom:2px}
 .filtroSel:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
 .search:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
 .count{font-size:12px;color:var(--gris);margin-left:auto}
-.barFiltros{position:sticky;top:0;z-index:50;background:var(--crema);padding:12px 0;margin-bottom:8px;border-bottom:1px solid var(--linea)}
+.sidebarFiltros{position:fixed;top:0;left:0;width:230px;height:100vh;background:var(--sidebar);color:var(--sidebar-tx);padding:22px 18px;overflow-y:auto;z-index:100}
+.sbHead{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.12)}
+.sbLogo{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.sbTitle{font-family:'Fraunces',serif;font-weight:900;font-size:15px;color:#fff;line-height:1.15}
+.sbSub{font-size:11px;color:var(--sidebar-tx);opacity:.8}
+.sbGroup label{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--sidebar-tx);opacity:.7;font-weight:600;margin:12px 0 4px}
+.sbLimpiar{width:100%;border:1px solid rgba(255,255,255,.25);background:transparent;color:#fff;font-family:inherit;font-size:12px;font-weight:600;padding:10px;border-radius:9px;cursor:pointer;margin-top:18px}
+.sbLimpiar:hover{background:rgba(255,255,255,.1)}
+@media(max-width:900px){.sidebarFiltros{position:static;width:auto;height:auto;margin-bottom:16px}}
 
 /* SECCION CUARTELES */
 h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burdeo);margin:30px 0 4px;border-bottom:2px solid var(--dorado);padding-bottom:8px;display:inline-block}
@@ -155,6 +164,8 @@ footer b{color:var(--burdeo)}
 .whoami{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);color:#fff;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;margin-top:12px}
 .whoami button{background:none;border:0;color:var(--dorado-cl);cursor:pointer;font-family:inherit;font-weight:700;font-size:12px;text-decoration:underline}
 #app{display:none}
+#app.conSidebar{padding-left:230px}
+@media(max-width:900px){#app.conSidebar{padding-left:0}}
 
 </style>
 </head>
@@ -214,17 +225,27 @@ footer b{color:var(--burdeo)}
     <div id="cargaLog" style="margin-top:10px;font-size:12.5px"></div>
   </div>
 
-  <div class="barFiltros">
-    <div class="bar" style="flex-wrap:wrap;margin:0">
-      <select id="fPresup" class="filtroSel"><option value="">Presupuestada y no</option><option value="si">Solo presupuestadas</option><option value="no">Solo NO presupuestadas</option></select>
-      <select id="fGrupoLabor" class="filtroSel"><option value="">Todos los grupos labor</option></select>
-      <select id="fCampo" class="filtroSel"><option value="">Todos los campos</option></select>
-      <select id="fVariedad" class="filtroSel"><option value="">Todas las variedades</option></select>
-      <select id="fLabor" class="filtroSel"><option value="">Todas las labores</option></select>
-      <select id="fCuartel" class="filtroSel"><option value="">Todos los cuarteles</option></select>
-      <button id="limpiarFiltros" style="border:1px solid var(--linea);background:#fff;color:var(--gris);font-family:inherit;font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer">Limpiar</button>
+  <aside class="sidebarFiltros">
+    <div class="sbHead">
+      <div class="sbLogo">🍇</div>
+      <div><div class="sbTitle">Agrícola San José</div><div class="sbSub">Control de Labores</div></div>
     </div>
-  </div>
+    <div class="sbGroup">
+      <label>Presupuesto</label>
+      <select id="fPresup" class="filtroSel"><option value="">Presupuestada y no</option><option value="si">Solo presupuestadas</option><option value="no">Solo NO presupuestadas</option></select>
+      <label>Grupo de labor</label>
+      <select id="fGrupoLabor" class="filtroSel"><option value="">Todos los grupos labor</option></select>
+      <label>Campo</label>
+      <select id="fCampo" class="filtroSel"><option value="">Todos los campos</option></select>
+      <label>Variedad</label>
+      <select id="fVariedad" class="filtroSel"><option value="">Todas las variedades</option></select>
+      <label>Labor</label>
+      <select id="fLabor" class="filtroSel"><option value="">Todas las labores</option></select>
+      <label>Cuartel</label>
+      <select id="fCuartel" class="filtroSel"><option value="">Todos los cuarteles</option></select>
+      <button id="limpiarFiltros" class="sbLimpiar">Limpiar filtros</button>
+    </div>
+  </aside>
 
   <div class="kpis" id="kpis"></div>
 
@@ -391,6 +412,7 @@ async function entrar(codigo){
   window.ES_ADMIN = !!u.admin;
   document.getElementById("login").style.display="none";
   document.getElementById("app").style.display="block";
+  document.getElementById("app").classList.add("conSidebar");
   if(window.ES_ADMIN){ document.getElementById("zonaCarga").style.display="block"; }
   // badge de identidad en el header
   const ambito = u.grupos ? u.grupos.map(g=>g.charAt(0)+g.slice(1).toLowerCase()).join(" · ") : "Todos los campos";
@@ -885,16 +907,19 @@ function _procLil(rows){const g={};rows.forEach(r=>{const folio=_S(r['FOLIO']);i
   const trato=_up(r['TRATO/DIA'])==='TRATO';
   if(!g[folio])g[folio]={folio,grupo:_S(r['GRUPO CENTRO COSTO']),cuartel:_S(r['CENTRO COSTO']),labor:_S(r['LABOR']),
     encargado:_S(r['ENCARGADO SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['FECHA']};
-  const o=g[folio];if(trato){o.trato=true;o.plantas+=_N(r['N PLANTAS']);}
+  const o=g[folio];const npl=_N(r['N PLANTAS']);
+  // Cuenta plantas si es TRATO, o si es DIARIO con más de 1 planta (diario=1 es jornada pura)
+  if(trato || npl>1){o.trato=o.trato||trato;o.plantas+=npl;}
   o.costo+=_N(r['TOTAL A PAGAR']);o.ruts.add(_S(r['PERSONAL#RUT EMPLEADO']));});
   return Object.values(g).map(o=>_fila(o,'APROBADO'));}
 function _procRep(rows){const g={};rows.forEach(r=>{const folio=_S(r['Número de registro']);if(!folio)return;
   const trato=_up(r['Personal#Tipo Trabajo'])==='TRATO';
   if(!g[folio])g[folio]={folio,estado:_up(r['Estado Folio']),grupo:_S(r['Grupo Centro Costo']),cuartel:_S(r['Centro Costo']),
     labor:_S(r['Labor']),encargado:_S(r['Encargado SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['Fecha de Creación']};
-  const o=g[folio];const uds=_N(r['Personal#UnidadesTrabajadasAux']);if(trato){o.trato=true;o.plantas+=uds;}
+  const o=g[folio];const uds=_N(r['Personal#UnidadesTrabajadasAux']);
+  // Cuenta plantas si es TRATO, o si es DIARIO con más de 1 planta (diario=1 es jornada)
+  if(trato || uds>1){o.trato=o.trato||trato;o.plantas+=uds;}
   // En el reporte, TotalContratista es el valor POR PLANTA (ya con ×1,5).
-  // El costo de la línea = valor por planta × unidades trabajadas de esa persona.
   o.costo+=_N(r['TotalContratista'])*uds;o.ruts.add(_S(r['Personal#Rut Empleado']));});
   return Object.values(g).map(o=>_fila(o,o.estado));}
 function _fila(o,estado){return {folio:o.folio,estado,grupo:o.grupo,cuartel:o.cuartel,labor:o.labor,
