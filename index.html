@@ -17,7 +17,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--tinta);line-height:1.5;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+.wrap{max-width:1320px;margin:0 auto;padding:14px 28px}
 
 /* HEADER */
 header{background:#fff;color:var(--tinta);padding:0;position:relative;border-bottom:1px solid var(--linea)}
@@ -69,7 +69,7 @@ header{background:#fff;color:var(--tinta);padding:0;position:relative;border-bot
 @media(max-width:900px){.sidebarFiltros{position:static;width:auto;height:auto}}
 
 /* SECCION CUARTELES */
-h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burdeo);margin:30px 0 4px;border-bottom:2px solid var(--dorado);padding-bottom:8px;display:inline-block}
+h2{font-family:'Fraunces',serif;font-weight:700;font-size:18px;color:var(--tinta);margin:6px 0 10px}
 .hint{font-size:12px;color:var(--gris);margin:8px 0 14px;font-style:italic}
 .empty{font-size:13px;color:var(--gris);font-style:italic;padding:14px 0}
 .cuarteles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:8px}
@@ -85,28 +85,30 @@ h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burde
 .cq .leg i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
 .cq .presup{margin-top:9px;padding-top:9px;border-top:1px dashed var(--linea);font-size:11px;line-height:1.7}
 .cq .presup b{color:var(--tinta)}
-/* Fila de KPIs (spec: tarjetas blancas, 5 por fila, número 42px) */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
-.kpi2{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:20px 22px;box-shadow:0 1px 3px rgba(20,50,30,.05)}
-.kpiTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.kpiLbl{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--gris);font-weight:700}
-.kpiIc{width:34px;height:34px;border-radius:10px;background:var(--verde-bg);color:var(--verde);display:flex;align-items:center;justify-content:center;font-size:16px}
+/* Fila de KPIs compacta: 6 en una fila, números elegantes */
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:12px}
+.kpi2{background:#fff;border:1px solid var(--linea);border-radius:14px;padding:13px 15px;box-shadow:0 1px 3px rgba(20,50,30,.04)}
+.kpiTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.kpiLbl{font-size:9.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--gris);font-weight:700;line-height:1.2}
+.kpiIc{width:26px;height:26px;border-radius:8px;background:var(--verde-bg);color:var(--verde);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
 .kpiIc.warn{background:var(--naranja-bg);color:var(--naranja)} .kpiIc.bad{background:var(--rojo-bg);color:var(--rojo)} .kpiIc.ok{background:var(--verde-bg);color:var(--verde)}
-.kpiVal{font-family:'Fraunces',serif;font-weight:900;font-size:34px;line-height:1;color:var(--tinta)}
+.kpiVal{font-family:'Fraunces',serif;font-weight:700;font-size:24px;line-height:1.05;color:var(--tinta)}
 .kpiVal.warn{color:var(--naranja)} .kpiVal.bad{color:var(--rojo)} .kpiVal.ok{color:var(--verde)}
-.kpiBar{height:6px;background:#EEF1F0;border-radius:4px;margin:10px 0 8px;overflow:hidden}
-.kpiBarF{height:100%;border-radius:4px;background:var(--verde)}
+.kpiBar{height:5px;background:#EEF1F0;border-radius:3px;margin:7px 0 5px;overflow:hidden}
+.kpiBarF{height:100%;border-radius:3px;background:var(--verde)}
 .kpiBarF.warn{background:var(--naranja)} .kpiBarF.bad{background:var(--rojo)} .kpiBarF.ok{background:var(--verde)}
-.kpiSub{font-size:12px;color:var(--gris);margin-top:6px}
+.kpiSub{font-size:10.5px;color:var(--gris);margin-top:4px;line-height:1.25}
+@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
 /* Panel ¿Qué requiere atención? */
-.atencion{display:flex;align-items:center;gap:28px;background:#fff;border:1px solid var(--linea);border-radius:16px;padding:20px 24px;box-shadow:0 1px 3px rgba(20,50,30,.05);margin-bottom:20px;flex-wrap:wrap}
-.atTitle{font-family:'Fraunces',serif;font-weight:900;font-size:18px;color:var(--tinta);line-height:1.1;flex-shrink:0}
-.atList{display:flex;gap:32px;flex:1;flex-wrap:wrap}
-.atItem{display:flex;align-items:center;gap:10px}
-.atIc{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.atencion{display:flex;align-items:center;gap:22px;background:#fff;border:1px solid var(--linea);border-radius:14px;padding:11px 20px;box-shadow:0 1px 3px rgba(20,50,30,.04);margin-bottom:12px;flex-wrap:wrap}
+.atTitle{font-family:'Fraunces',serif;font-weight:900;font-size:15px;color:var(--tinta);line-height:1.1;flex-shrink:0}
+.atList{display:flex;gap:26px;flex:1;flex-wrap:wrap}
+.atItem{display:flex;align-items:center;gap:9px}
+.atIc{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
 .atIc.bad{background:var(--rojo-bg);color:var(--rojo)} .atIc.warn{background:var(--naranja-bg);color:var(--naranja)} .atIc.ok{background:var(--verde-bg);color:var(--verde)}
-.atTit{font-size:13.5px;font-weight:700;color:var(--tinta)} .atTit.bad{color:var(--rojo)} .atTit.warn{color:var(--naranja)} .atTit.ok{color:var(--verde)}
-.atSub{font-size:11.5px;color:var(--gris)}
+.atTit{font-size:12.5px;font-weight:700;color:var(--tinta)} .atTit.bad{color:var(--rojo)} .atTit.warn{color:var(--naranja)} .atTit.ok{color:var(--verde)}
+.atSub{font-size:11px;color:var(--gris)}
 /* Panel gerencial — paleta sobria */
 .gerKpiRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
 .gerKpi{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 3px rgba(60,40,20,.04);position:relative}
@@ -116,24 +118,24 @@ h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burde
 .gerKpi .sub{font-size:11px;color:var(--gris);margin-top:5px}
 .gerKpi .ptrack{height:6px;background:#EFEBE4;border-radius:4px;margin-top:9px;overflow:hidden}
 .gerKpi .pfill{height:100%;border-radius:4px}
-.gerGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:14px}
-.gerCard{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 3px rgba(60,40,20,.04)}
+.gerGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.gerCard{background:#fff;border:1px solid var(--linea);border-radius:14px;padding:13px 16px;box-shadow:0 1px 3px rgba(60,40,20,.04)}
 .gerCard.wide{grid-column:1/-1}
-.gerCard h3{font-family:'Fraunces',serif;font-size:15px;color:var(--tinta);margin:0 0 12px}
-.gbar{margin-bottom:10px}
-.gbar .glbl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
+.gerCard h3{font-family:'Fraunces',serif;font-size:13.5px;color:var(--tinta);margin:0 0 9px}
+.gbar{margin-bottom:7px}
+.gbar .glbl{display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px}
 .gbar .glbl b{font-variant-numeric:tabular-nums}
-.gbar .gtrack{height:8px;background:#EFEBE4;border-radius:5px;overflow:hidden}
+.gbar .gtrack{height:6px;background:#EFEBE4;border-radius:4px;overflow:hidden}
 .gbar .gfill{height:100%;border-radius:5px;background:#9AA88C}
 .gtabla{width:100%;border-collapse:collapse;font-size:12px}
-.gtabla th{text-align:left;color:var(--gris);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--linea);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
-.gtabla td{padding:7px 8px;border-bottom:1px solid #F0ECE5}
+.gtabla th{text-align:left;color:var(--gris);font-weight:600;padding:4px 8px;border-bottom:1px solid var(--linea);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em}
+.gtabla td{padding:5px 8px;border-bottom:1px solid #F0ECE5;font-size:11.5px}
 .gtabla td.num{text-align:right;font-variant-numeric:tabular-nums}
 .gtabla tr:last-child td{border-bottom:0}
 .evolSvg{width:100%;height:180px;display:block}
 .gerFoot{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 3px rgba(60,40,20,.04);margin-bottom:22px}
 .gerFoot .fm{text-align:center;padding:4px}
-.gerFoot .fm .fv{font-family:'Fraunces',serif;font-weight:900;font-size:20px;color:var(--tinta)}
+.gerFoot .fm .fv{font-family:'Fraunces',serif;font-weight:900;font-size:17px;color:var(--tinta)}
 .gerFoot .fm .fl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--gris);font-weight:700;margin-top:3px}
 .sem-ok{color:#2E7D46} .sem-warn{color:#C8621F} .sem-bad{color:#B23A2E}
 .fill-ok{background:#4E9A5F} .fill-warn{background:#D68A3A} .fill-bad{background:#C0483B} .fill-neutral{background:#9AA88C}
@@ -290,11 +292,10 @@ footer b{color:var(--burdeo)}
 
   <div id="panelGer">
     <div class="gerGrid">
-      <div class="gerCard wide"><h3>Presupuesto vs gasto por labor</h3><p class="hint" style="margin:0 0 10px">Presupuesto anual = precio × plantas de TODOS los cuarteles con esa labor. Verde &lt;85% · ámbar 85–100% · rojo &gt;100%.</p><div id="gerPresup"></div></div>
-      <div class="gerCard wide"><h3>Avance físico por labor</h3><p class="hint" style="margin:0 0 10px">% de plantas trabajadas sobre el total presupuestado de cada labor.</p><div id="gerAvance"></div></div>
+      <div class="gerCard"><h3>Presupuesto vs gasto por labor</h3><div id="gerPresup"></div></div>
+      <div class="gerCard"><h3>Avance físico por labor</h3><div id="gerAvance"></div></div>
       <div class="gerCard"><h3>Gasto por campo</h3><div id="gerCampo"></div></div>
       <div class="gerCard"><h3>Gasto por grupo de labor</h3><div id="gerGrupoLab"></div></div>
-      <div class="gerFoot" id="gerFoot" style="grid-column:1/-1"></div>
     </div>
   </div>
   </section>
@@ -336,12 +337,12 @@ footer b{color:var(--burdeo)}
   <div class="folios" id="folios"></div>
 
   <div class="gerCard wide" style="margin-top:16px"><h3>Riesgo administrativo: preliminares antiguos</h3><div id="gerRiesgo"></div></div>
-  </section>
 
   <footer>
     <b>Cómo leer las plantas:</b> cuentan las líneas <b>TRATO</b> y las <b>DIARIO con más de 1 planta</b>. Las líneas DIARIO=1 son jornada/asistencia y no cuentan como plantas.<br>
     <b>Datos en vivo desde Supabase.</b> El admin carga los folios del día con el PIN de administrador; los demás solo consultan.
   </footer>
+  </section>
 </div>
 
 </div><!-- /#app -->
@@ -573,9 +574,9 @@ function drawGerencial(){
   const semColor=pc=>pc>100?'var(--rojo)':(pc>85?'var(--naranja)':'var(--verde)');
 
   // ===== Presupuesto vs real por labor =====
-  const filasP=Object.entries(porLaborPresup).sort((a,b)=>b[1].presup-a[1].presup);
+  const filasP=Object.entries(porLaborPresup).sort((a,b)=>b[1].presup-a[1].presup).slice(0,6);
   document.getElementById("gerPresup").innerHTML = filasP.length
-    ? `<table class="gtabla"><tr><th>Labor</th><th style="text-align:right">Presupuesto</th><th style="text-align:right">Gastado</th><th style="text-align:right">Consumo</th></tr>`+
+    ? `<table class="gtabla"><tr><th>Labor</th><th style="text-align:right">Presup.</th><th style="text-align:right">Gastado</th><th style="text-align:right">Consumo</th></tr>`+
       filasP.map(([l,d])=>{
         const pc=d.presup>0?Math.round(d.real/d.presup*100):0;
         return `<tr><td>${l}</td><td class="num">${money(d.presup)}</td><td class="num">${money(d.real)}</td><td class="num" style="color:${semColor(pc)};font-weight:700">${pc}%${pc>100?' ⚠':''}</td></tr>`;
@@ -589,20 +590,19 @@ function drawGerencial(){
     ? filasAv.map(x=>{
         const col=x.av>105?'#C0483B':(x.av>=100?'#4E9A5F':'#9AA88C');
         return `<div class="gbar"><div class="glbl"><span>${x.l}</span><b>${x.av}%</b></div>
-          <div class="gtrack"><div class="gfill" style="width:${Math.min(100,x.av)}%;background:${col}"></div></div>
-          <div style="font-size:10.5px;color:var(--gris);margin-top:2px">${num(x.plTrab)} de ${num(x.plTotal)} plantas presupuestadas</div></div>`;
+          <div class="gtrack"><div class="gfill" style="width:${Math.min(100,x.av)}%;background:${col}"></div></div></div>`;
       }).join("")
     : '<p class="empty">Sin avance medible en los filtros elegidos.</p>';
 
   // ===== Gasto por campo =====
   const porCampo={};
   D.forEach(f=>{ if(f.grupo) porCampo[f.grupo]=(porCampo[f.grupo]||0)+f.costo; });
-  barras("gerCampo", Object.entries(porCampo).sort((a,b)=>b[1]-a[1]));
+  barras("gerCampo", Object.entries(porCampo).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]));
 
   // ===== Gasto por grupo de labor (barras, no dona) =====
   const porGL={};
   D.forEach(f=>{ porGL[f.grupoLabor]=(porGL[f.grupoLabor]||0)+f.costo; });
-  barras("gerGrupoLab", Object.entries(porGL).sort((a,b)=>b[1]-a[1]));
+  barras("gerGrupoLab", Object.entries(porGL).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]));
 
   // ===== Avance de cuarteles por labor (completos/en progreso/sin empezar) =====
   const cRes=document.getElementById("gerResumen");
@@ -672,17 +672,19 @@ function drawGerencial(){
     : '<p class="empty">✓ Sin preliminares antiguos. Todo al día.</p>';
   }
 
-  // ===== Pie de métricas =====
-  const dotacion=D.reduce((s,f)=>s+f.trab,0);
-  const ft=D.filter(f=>f.tipo==="TRATO"&&f.plantas>0);
-  const rendimiento=ft.length&&ft.reduce((s,f)=>s+f.trab,0)?Math.round(ft.reduce((s,f)=>s+f.plantas,0)/ft.reduce((s,f)=>s+f.trab,0)):0;
-  const fm=(v,l)=>`<div class="fm"><div class="fv">${v}</div><div class="fl">${l}</div></div>`;
-  document.getElementById("gerFoot").innerHTML =
-    fm(num(plantasTrab),"Plantas trabajadas")+
-    fm(D.length,"Folios en análisis")+
-    fm(num(dotacion),"Dotación acumulada")+
-    fm(rendimiento?num(rendimiento):"—","Plantas por persona")+
-    fm(consumoGlobal!==null?(100-Math.min(consumoGlobal,100))+"%":"—","Presupuesto disponible");
+  // ===== Pie de métricas (solo si existe el contenedor) =====
+  const elFoot=document.getElementById("gerFoot");
+  if(elFoot){
+    const dotacion=D.reduce((s,f)=>s+f.trab,0);
+    const ft=D.filter(f=>f.tipo==="TRATO"&&f.plantas>0);
+    const rendimiento=ft.length&&ft.reduce((s,f)=>s+f.trab,0)?Math.round(ft.reduce((s,f)=>s+f.plantas,0)/ft.reduce((s,f)=>s+f.trab,0)):0;
+    const fm=(v,l)=>`<div class="fm"><div class="fv">${v}</div><div class="fl">${l}</div></div>`;
+    elFoot.innerHTML =
+      fm(num(plantasTrab),"Plantas trabajadas")+
+      fm(D.length,"Folios en análisis")+
+      fm(num(dotacion),"Dotación acumulada")+
+      fm(consumoGlobal!==null?(100-Math.min(consumoGlobal,100))+"%":"—","Presupuesto disponible");
+  }
 }
 
 // ====== ESTADO DE FILTROS (5 en cascada) ======
@@ -762,10 +764,8 @@ function render(){
     K("Presupuesto restante", money(presupRestante>0?presupRestante:0), presupTotal>0?Math.round(presupRestante/presupTotal*100)+"% disponible":"—", "◈")+
     K("Plantas trabajadas", num(plantasTrab), `de ${num(plantasPresup)} presupuestadas`, "🌿", "", avanceFisico)+
     K("Costo por planta", "$"+num(costoPorPlanta), "Gasto ÷ plantas trabajadas", "◇")+
-    K("Avance físico", avanceFisico!=null?avanceFisico+"%":"—", "de la temporada", "▲", "", avanceFisico)+
-    K("Cuarteles completos", cComp+"/"+totCuarteles, pctComp+"% del total · "+cProc+" en proceso", "▤")+
-    K("Folios pendientes", prelim.length, p3+" con más de 3 días", "◷", p3?"warn":"")+
-    K("Excedidos", exc, exc?"revisar sobrecostos":"todo en rango", "⚠", exc?"bad":"ok");
+    K("Avance físico", avanceFisico!=null?avanceFisico+"%":"—", `${cComp}/${totCuarteles} cuarteles`, "▲", "", avanceFisico)+
+    K("Folios pendientes", prelim.length, p3+" con más de 3 días · "+exc+" excedidos", "◷", (p3||exc)?"warn":"");
 
   // ===== Panel ¿Qué requiere atención hoy? =====
   drawAtencion({exc, p3, consumo, cSin, labsPresupObj:{realN}});
