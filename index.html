@@ -44,7 +44,27 @@ h1{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(26px,4vw,40px);l
 .search{flex:1;min-width:180px;border:1px solid var(--linea);border-radius:10px;padding:9px 13px;font-family:inherit;font-size:13px;background:var(--papel);color:var(--tinta)}
 .filtroSel{flex:1;min-width:140px;border:1px solid var(--linea);border-radius:10px;padding:9px 11px;font-family:inherit;font-size:13px;background:#fff;color:var(--tinta);cursor:pointer}
 .filtroSel:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
+.search:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
+.count{font-size:12px;color:var(--gris);margin-left:auto}
 .barFiltros{position:sticky;top:0;z-index:50;background:var(--crema);padding:12px 0;margin-bottom:8px;border-bottom:1px solid var(--linea)}
+
+/* SECCION CUARTELES */
+h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--burdeo);margin:30px 0 4px;border-bottom:2px solid var(--dorado);padding-bottom:8px;display:inline-block}
+.hint{font-size:12px;color:var(--gris);margin:8px 0 14px;font-style:italic}
+.empty{font-size:13px;color:var(--gris);font-style:italic;padding:14px 0}
+.cuarteles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:8px}
+.cq{background:var(--papel);border:1px solid var(--linea);border-radius:12px;padding:14px}
+.cq .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+.cq .nm{font-family:'Fraunces',serif;font-weight:900;font-size:19px}
+.cq .gp{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--gris);font-weight:600}
+.cq .plantas{font-size:12px;color:var(--gris);margin-bottom:9px}
+.cq .plantas b{color:var(--tinta);font-weight:700}
+.split{height:9px;border-radius:5px;background:#EDE7DC;overflow:hidden;display:flex}
+.split .ap{background:var(--verde)} .split .pr{background:var(--naranja);opacity:.85}
+.cq .leg{display:flex;gap:12px;font-size:10.5px;margin-top:7px;color:var(--gris)}
+.cq .leg i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+.cq .presup{margin-top:9px;padding-top:9px;border-top:1px dashed var(--linea);font-size:11px;line-height:1.7}
+.cq .presup b{color:var(--tinta)}
 /* Panel gerencial — paleta sobria */
 .gerKpiRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
 .gerKpi{background:#fff;border:1px solid var(--linea);border-radius:16px;padding:16px 18px;box-shadow:0 1px 3px rgba(60,40,20,.04);position:relative}
@@ -253,7 +273,17 @@ footer b{color:var(--burdeo)}
 // Catálogo de cuarteles: se carga desde Supabase al iniciar (plantas y variedad)
 let PLANTAS_TOTALES = {};   // { "C08": 3183, ... }
 let VARIEDAD_CUARTEL = {};  // { "C08": "AUTUMN CRISP", ... }
+let GRUPO_CUARTEL = {};     // { "C08": "EL CERRILLO", ... }
 let PRESUPUESTO = {};       // { "PODA|C08": 420, ... } precio por planta, clave normalizada
+
+// ¿Este cuartel pasa los filtros activos (campo/variedad/cuartel)?
+// Se usa para acotar el PRESUPUESTO a lo que estás mirando.
+function cuartelPasaFiltro(cua){
+  if(fCuartel && cua!==fCuartel) return false;
+  if(fVariedad && VARIEDAD_CUARTEL[cua]!==fVariedad) return false;
+  if(fCampo && GRUPO_CUARTEL[cua]!==(fCampo||"").toUpperCase()) return false;
+  return true;
+}
 
 // Normaliza nombre de labor: mayúsculas, sin tildes, sin espacios extra
 function normLabor(s){
@@ -276,12 +306,13 @@ let usuarioActual = null;
 async function cargarCatalogo(){
   const { data, error } = await sb
     .from("cuarteles_plantas")
-    .select("cuartel,plantas_total,variedad");
+    .select("cuartel,grupo,plantas_total,variedad");
   if(error){ console.error("Catálogo:", error.message); return; }
-  PLANTAS_TOTALES = {}; VARIEDAD_CUARTEL = {};
+  PLANTAS_TOTALES = {}; VARIEDAD_CUARTEL = {}; GRUPO_CUARTEL = {};
   (data||[]).forEach(c=>{
     if(c.plantas_total) PLANTAS_TOTALES[c.cuartel] = c.plantas_total;
     if(c.variedad) VARIEDAD_CUARTEL[c.cuartel] = c.variedad;
+    if(c.grupo) GRUPO_CUARTEL[c.cuartel] = (c.grupo||"").toUpperCase();
   });
 }
 
@@ -440,11 +471,11 @@ function drawGerencial(){
   const porLaborPresup = {};  // labor legible -> {presup, real, plTrab, plTotal}
   laboresD.forEach(lab=>{
     const n=normLabor(lab);
-    // sumar precio×plantas de TODOS los cuarteles con esta labor en el presupuesto
+    // presupuesto SOLO de los cuarteles que pasan el filtro activo (campo/variedad/cuartel)
     let presup=0, plTotal=0;
     Object.keys(PRESUPUESTO).forEach(k=>{
       const [ln,cua]=k.split("|");
-      if(ln===n){ const pl=PLANTAS_TOTALES[cua];
+      if(ln===n && cuartelPasaFiltro(cua)){ const pl=PLANTAS_TOTALES[cua];
         if(pl){ presup+=PRESUPUESTO[k]*pl; plTotal+=pl; } }
     });
     if(presup>0){
@@ -619,14 +650,13 @@ function poblarFiltros(){
 
 function drawCuarteles(){
   const cont=document.getElementById("cuarteles");
-  // Basta con elegir GRUPO DE LABOR (o labor). Sin ninguno de los dos, pedir grupo.
-  if(!fGrupoLabor && !fLabor){
-    cont.innerHTML='<p class="empty">Elige un <b>grupo de labor</b> (y opcionalmente una labor) en los filtros de arriba para ver el avance por cuartel.</p>';
+  // El % por cuartel solo es válido POR LABOR (sumar labores infla el %)
+  if(!fLabor){
+    cont.innerHTML='<p class="empty">Elige una <b>labor</b> en los filtros de arriba para ver el % de avance por cuartel.</p>';
     return;
   }
   const base=aplicarCascada(FOLIOS,5);
-  // si hay labor específica, filtra por ella; si no, usa todas las del grupo elegido
-  const rel = fLabor ? base.filter(f=>f.labor===fLabor) : base;
+  const rel = base.filter(f=>f.labor===fLabor);
   const cq={};
   rel.forEach(f=>{
     if(!cq[f.cuartel]) cq[f.cuartel]={cuartel:f.cuartel,grupo:f.grupo,ap:0,pr:0,costoReal:0};
@@ -644,22 +674,18 @@ function drawCuarteles(){
     let pctTxt = total ? `<b>${pct}%</b> de ${num(total)}` : `<b>${num(comp)}</b> comprom. · total sin cargar`;
     if(pct!==null && pct>105) pctTxt += ' <span style="color:var(--rojo);font-weight:700">⚠ excede</span>';
 
-    // Presupuesto: solo tiene sentido cuando hay una labor específica elegida
+    // Presupuesto del cuartel para la labor elegida
     let presupLine="";
-    if(fLabor){
-      const precio=precioPresup(fLabor, c.cuartel);
-      if(precio!==null && total){
-        const presupTotal = precio*total;
-        const consumido = presupTotal>0 ? Math.round(c.costoReal/presupTotal*100) : 0;
-        const colorC = consumido>100 ? 'var(--rojo)' : (consumido>85?'#C8621F':'#2E7D46');
-        presupLine = `<div class="presup">
-          <div>Presupuesto: <b>${money(presupTotal)}</b> <span style="color:var(--gris)">(${num(total)} × ${money(precio)})</span></div>
-          <div>Gastado real: <b>${money(c.costoReal)}</b></div>
-          <div>Consumido: <b style="color:${colorC}">${consumido}%</b>${consumido>100?' ⚠':''}</div>
-        </div>`;
-      }
-    } else {
-      presupLine=`<div class="presup"><div>Gastado real: <b>${money(c.costoReal)}</b></div></div>`;
+    const precio=precioPresup(fLabor, c.cuartel);
+    if(precio!==null && total){
+      const presupTotal = precio*total;
+      const consumido = presupTotal>0 ? Math.round(c.costoReal/presupTotal*100) : 0;
+      const colorC = consumido>100 ? 'var(--rojo)' : (consumido>85?'#C8621F':'#2E7D46');
+      presupLine = `<div class="presup">
+        <div>Presupuesto: <b>${money(presupTotal)}</b> <span style="color:var(--gris)">(${num(total)} × ${money(precio)})</span></div>
+        <div>Gastado real: <b>${money(c.costoReal)}</b></div>
+        <div>Consumido: <b style="color:${colorC}">${consumido}%</b>${consumido>100?' ⚠':''}</div>
+      </div>`;
     }
 
     return `<div class="cq">
