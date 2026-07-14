@@ -216,6 +216,7 @@ footer b{color:var(--burdeo)}
 
   <div class="barFiltros">
     <div class="bar" style="flex-wrap:wrap;margin:0">
+      <select id="fPresup" class="filtroSel"><option value="">Presupuestada y no</option><option value="si">Solo presupuestadas</option><option value="no">Solo NO presupuestadas</option></select>
       <select id="fGrupoLabor" class="filtroSel"><option value="">Todos los grupos labor</option></select>
       <select id="fCampo" class="filtroSel"><option value="">Todos los campos</option></select>
       <select id="fVariedad" class="filtroSel"><option value="">Todas las variedades</option></select>
@@ -238,7 +239,7 @@ footer b{color:var(--burdeo)}
       <div class="gerCard wide"><h3>Avance físico por labor</h3><p class="hint" style="margin:0 0 10px">% de plantas trabajadas sobre el total presupuestado de cada labor.</p><div id="gerAvance"></div></div>
       <div class="gerCard"><h3>Gasto por campo</h3><div id="gerCampo"></div></div>
       <div class="gerCard"><h3>Gasto por grupo de labor</h3><div id="gerGrupoLab"></div></div>
-      <div class="gerCard wide"><h3>Evolución del gasto acumulado</h3><div id="gerEvol"></div></div>
+      <div class="gerCard wide"><h3>Avance de cuarteles por labor</h3><p class="hint" style="margin:0 0 10px">Elige una <b>labor</b> para ver qué cuarteles están completos (≥95%), en progreso o sin empezar (&lt;5%).</p><div id="gerResumen"></div></div>
       <div class="gerCard wide"><h3>Riesgo administrativo: preliminares pendientes</h3><div id="gerRiesgo"></div></div>
     </div>
     <div class="gerFoot" id="gerFoot"></div>
@@ -537,29 +538,61 @@ function drawGerencial(){
   D.forEach(f=>{ porGL[f.grupoLabor]=(porGL[f.grupoLabor]||0)+f.costo; });
   barras("gerGrupoLab", Object.entries(porGL).sort((a,b)=>b[1]-a[1]));
 
-  // ===== Evolución del gasto acumulado =====
-  const porFecha={};
-  D.forEach(f=>{ if(f.creado) porFecha[f.creado]=(porFecha[f.creado]||0)+f.costo; });
-  const fechas=Object.keys(porFecha).sort();
-  let ac=0; const serie=fechas.map(d=>{ac+=porFecha[d];return [d,ac];});
-  if(serie.length>1){
-    const W=900,H=170,PAD=48;
-    const maxV=serie[serie.length-1][1];
-    const x=i=>PAD+i*(W-PAD-12)/(serie.length-1);
-    const y=v=>H-22-(v/maxV)*(H-42);
-    const pts=serie.map((s,i)=>`${x(i)},${y(s[1])}`).join(" ");
-    const area=`${PAD},${H-22} ${pts} ${x(serie.length-1)},${H-22}`;
-    const et=i=>{const d=serie[i][0].slice(5).split("-");return d[1]+"/"+d[0];};
-    const lab=[0,Math.floor(serie.length/2),serie.length-1];
-    document.getElementById("gerEvol").innerHTML =
-      `<svg class="evolSvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        <polygon points="${area}" fill="rgba(154,168,140,.18)"/>
-        <polyline points="${pts}" fill="none" stroke="#6E8063" stroke-width="2.5"/>
-        ${serie.map((s,i)=>`<circle cx="${x(i)}" cy="${y(s[1])}" r="3" fill="#6E8063"/>`).join("")}
-        <text x="${PAD}" y="14" font-size="11" fill="#8A8178">${money(maxV)} acumulado</text>
-        ${lab.map(i=>`<text x="${x(i)}" y="${H-6}" font-size="10" fill="#8A8178" text-anchor="middle">${et(i)}</text>`).join("")}
-      </svg>`;
-  } else document.getElementById("gerEvol").innerHTML='<p class="empty">Se necesitan folios de al menos 2 fechas.</p>';
+  // ===== Avance de cuarteles por labor (completos/en progreso/sin empezar) =====
+  const cRes=document.getElementById("gerResumen");
+  if(!fLabor){
+    cRes.innerHTML='<p class="empty">Elige una <b>labor</b> en los filtros de arriba para ver el avance de cuarteles.</p>';
+  } else {
+    // universo de cuarteles: los que tienen esta labor+cuartel presupuestada (o todos los ejecutados si filtras "no")
+    // avance por cuartel = plantas trabajadas / plantas del cuartel
+    const nLab=normLabor(fLabor);
+    // cuarteles candidatos según el filtro presup: los que pasan cascada + tienen esta labor
+    const plTrabajadas={};
+    D.filter(f=>normLabor(f.labor)===nLab).forEach(f=>{ plTrabajadas[f.cuartel]=(plTrabajadas[f.cuartel]||0)+f.plantas; });
+    // set de cuarteles a evaluar: si "si"=presupuestados con esta labor; si ""/"no"=los que aparecen trabajados
+    let cuartelesEval=new Set();
+    if(fPresup==="si" || fPresup===""){
+      Object.keys(PRESUPUESTO).forEach(k=>{ const [ln,cua]=k.split("|");
+        if(ln===nLab && cuartelPasaFiltro(cua) && PLANTAS_TOTALES[cua]) cuartelesEval.add(cua); });
+    }
+    // agregar los que tienen trabajo aunque no estén presupuestados (para modo "no" o "")
+    Object.keys(plTrabajadas).forEach(c=>{ if(cuartelPasaFiltro(c)) cuartelesEval.add(c); });
+
+    const items=[...cuartelesEval].map(c=>{
+      const tot=PLANTAS_TOTALES[c]||0;
+      const tr=plTrabajadas[c]||0;
+      const av=tot>0?Math.round(tr/tot*100):0;
+      let estado = av>=95?"completo" : (av<5?"sin":"prog");
+      return {c, av, estado};
+    }).sort((a,b)=>a.av-b.av);
+
+    const nComp=items.filter(x=>x.estado==="completo").length;
+    const nProg=items.filter(x=>x.estado==="prog").length;
+    const nSin =items.filter(x=>x.estado==="sin").length;
+    const tot=items.length||1;
+    const general=Math.round(items.reduce((s,x)=>s+Math.min(x.av,100),0)/tot);
+    const col=e=>e==="completo"?"#4E9A5F":(e==="prog"?"#D68A3A":"#C7C3BA");
+    const txtcol=e=>e==="sin"?"#5F5E5A":"#fff";
+
+    cRes.innerHTML=`
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+        <span style="font-family:'Fraunces',serif;font-size:30px;font-weight:900">${general}%</span>
+        <span style="font-size:13px;color:var(--gris)">avance general · ${nComp} de ${tot} completos</span>
+      </div>
+      <div style="display:flex;height:24px;border-radius:6px;overflow:hidden;margin-bottom:8px">
+        ${nComp?`<div style="width:${nComp/tot*100}%;background:#4E9A5F;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px">${nComp}</div>`:''}
+        ${nProg?`<div style="width:${nProg/tot*100}%;background:#D68A3A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px">${nProg}</div>`:''}
+        ${nSin?`<div style="width:${nSin/tot*100}%;background:#C7C3BA;display:flex;align-items:center;justify-content:center;color:#5F5E5A;font-size:11px">${nSin}</div>`:''}
+      </div>
+      <div style="display:flex;gap:16px;font-size:12px;color:var(--gris);margin-bottom:16px">
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#4E9A5F;margin-right:4px"></span>Completos (≥95%)</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#D68A3A;margin-right:4px"></span>En progreso</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#C7C3BA;margin-right:4px"></span>Sin empezar (&lt;5%)</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px">
+        ${items.map(x=>`<div title="${x.c}: ${x.av}%" style="background:${col(x.estado)};color:${txtcol(x.estado)};text-align:center;padding:7px 2px;border-radius:6px;font-size:11px">${x.c}<div style="font-size:9px;opacity:.85">${x.av}%</div></div>`).join("")}
+      </div>`;
+  }
 
   // ===== Riesgo: preliminares antiguos =====
   const riesgo=prelim.filter(f=>f.dias>3).sort((a,b)=>b.dias-a.dias).slice(0,10);
@@ -583,12 +616,19 @@ function drawGerencial(){
 
 // ====== ESTADO DE FILTROS (5 en cascada) ======
 let filtroActual="TODOS", busqueda="";
-let fGrupoLabor="", fCampo="", fVariedad="", fLabor="", fCuartel="";
+let fPresup="", fGrupoLabor="", fCampo="", fVariedad="", fLabor="", fCuartel="";
+
+// ¿La labor+cuartel de este folio está presupuestada?
+function folioPresupuestado(f){
+  return precioPresup(f.labor, f.cuartel)!==null;
+}
 
 // Aplica los filtros de cascada a un conjunto de folios
 function aplicarCascada(base, hasta){
-  // hasta = hasta qué nivel aplicar (para poblar cada select con lo que dejan los anteriores)
   let l=base.slice();
+  // Nivel 0 (el primero): presupuestada / no presupuestada, por labor+cuartel
+  if(fPresup==="si") l=l.filter(f=>folioPresupuestado(f));
+  else if(fPresup==="no") l=l.filter(f=>!folioPresupuestado(f));
   if(hasta>=1 && fGrupoLabor) l=l.filter(f=>f.grupoLabor===fGrupoLabor);
   if(hasta>=2 && fCampo)      l=l.filter(f=>f.grupo===fCampo);
   if(hasta>=3 && fVariedad)   l=l.filter(f=>f.variedad===fVariedad);
@@ -624,8 +664,8 @@ function poblarFiltros(){
   const opt=(arr,sel)=>arr.map(v=>`<option value="${v}" ${v===sel?'selected':''}>${v}</option>`).join("");
   const uniq=(l,campo)=>[...new Set(l.map(f=>f[campo]).filter(v=>v&&v!=="Sin variedad"&&v!=="Sin clasificar"))].sort();
 
-  // Nivel 1: grupos labor (sobre todos)
-  const grupos = uniq(FOLIOS,"grupoLabor");
+  // Nivel 1: grupos labor (acotado por el filtro presupuestada/no, que es nivel 0)
+  const grupos = uniq(aplicarCascada(FOLIOS,0),"grupoLabor");
   // Nivel 2: campos, filtrados por grupo labor
   const campos = uniq(aplicarCascada(FOLIOS,1),"grupo");
   // Nivel 3: variedades, filtradas por grupo+campo
@@ -784,13 +824,15 @@ document.getElementById("buscar").addEventListener("input",e=>{busqueda=e.target
 
 // Los 5 filtros en cascada: al cambiar uno, se repuebla todo y se redibuja
 function onFiltro(){ poblarFiltros(); drawCuarteles(); drawFolios(); drawGerencial(); }
+document.getElementById("fPresup").addEventListener("change",e=>{fPresup=e.target.value; fGrupoLabor=fCampo=fVariedad=fLabor=fCuartel=""; onFiltro();});
 document.getElementById("fGrupoLabor").addEventListener("change",e=>{fGrupoLabor=e.target.value; fCampo=fVariedad=fLabor=fCuartel=""; onFiltro();});
 document.getElementById("fCampo").addEventListener("change",e=>{fCampo=e.target.value; fVariedad=fLabor=fCuartel=""; onFiltro();});
 document.getElementById("fVariedad").addEventListener("change",e=>{fVariedad=e.target.value; fLabor=fCuartel=""; onFiltro();});
 document.getElementById("fLabor").addEventListener("change",e=>{fLabor=e.target.value; fCuartel=""; onFiltro();});
 document.getElementById("fCuartel").addEventListener("change",e=>{fCuartel=e.target.value; onFiltro();});
 document.getElementById("limpiarFiltros").addEventListener("click",()=>{
-  fGrupoLabor=fCampo=fVariedad=fLabor=fCuartel="";
+  fPresup=fGrupoLabor=fCampo=fVariedad=fLabor=fCuartel="";
+  document.getElementById("fPresup").value="";
   onFiltro();
 });
 
