@@ -349,14 +349,20 @@ let VARIEDAD_CUARTEL = {};  // { "C08": "AUTUMN CRISP", ... }
 let GRUPO_CUARTEL = {};     // { "C08": "EL CERRILLO", ... }
 let PRESUPUESTO = {};       // { "PODA|C08": 420, ... } precio por planta, clave normalizada
 
+// Grupo efectivo de un cuartel: primero el catálogo, si no, lo que digan los folios
+let GRUPO_CUARTEL_FOLIO = {};  // se llena desde FOLIOS
+function grupoDeCuartel(cua){
+  return normGrupo(GRUPO_CUARTEL[cua] || GRUPO_CUARTEL_FOLIO[(cua||"").toUpperCase()] || "");
+}
+
 // Normaliza texto de grupo/campo para comparar (mayúsculas, sin tildes, sin espacios extra)
 function normGrupo(s){ return (s||"").toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
 
 // ¿Este cuartel pasa los filtros activos Y el rol del usuario?
 function cuartelPasaFiltro(cua){
-  const g=normGrupo(GRUPO_CUARTEL[cua]);
+  const g=grupoDeCuartel(cua);
   // rol: si el usuario tiene grupos limitados, el cuartel debe pertenecer a uno de ellos
-  if(window.GRUPOS_ROL && !window.GRUPOS_ROL.map(normGrupo).includes(g)) return false;
+  if(window.GRUPOS_ROL && g && !window.GRUPOS_ROL.map(normGrupo).includes(g)) return false;
   if(fCuartel && cua!==fCuartel) return false;
   if(fVariedad && VARIEDAD_CUARTEL[cua]!==fVariedad) return false;
   if(fCampo && g!==normGrupo(fCampo)) return false;
@@ -433,6 +439,9 @@ async function cargarDatos(){
       };
     });
   REPORTE = new Date().toLocaleString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  // fallback de grupo por cuartel: lo que digan los folios (por si el catálogo lo tiene vacío)
+  GRUPO_CUARTEL_FOLIO = {};
+  FOLIOS_ALL.forEach(f=>{ if(f.cuartel && f.grupo) GRUPO_CUARTEL_FOLIO[f.cuartel.toUpperCase()]=f.grupo; });
   return true;
 }
 
