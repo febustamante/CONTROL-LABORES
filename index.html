@@ -450,6 +450,8 @@ async function cargarDatos(){
 const USUARIOS = {
   "5511": { nombre: "Sergio Rojas",    grupos: ["EL CERRILLO"], admin:false },
   "6622": { nombre: "Rodrigo Salinas", grupos: ["RULO","NUEVO SENDERO","VALDÉS"], admin:false },
+  "3344": { nombre: "Álvaro",          grupos: ["RULO","VALDÉS"],  admin:false, vistas:["cuarteles","excedidos"] },
+  "4455": { nombre: "Paulina",         grupos: ["NUEVO SENDERO"],  admin:false, vistas:["cuarteles","excedidos"] },
   "9999": { nombre: "Gerencia",        grupos: null, admin:false },  // null = ve todo
   "7788": { nombre: "Admin",           grupos: null, admin:true }    // puede cargar y anular
 };
@@ -488,7 +490,17 @@ async function entrar(codigo){
   const ambito = u.grupos ? u.grupos.map(g=>g.charAt(0)+g.slice(1).toLowerCase()).join(" · ") : "Todos los campos";
   const hu=document.getElementById("hbUser");
   if(hu) hu.innerHTML=`<span class="who">👤 ${u.nombre} · ${ambito} <button onclick="location.reload()">Salir</button></span>`;
-  render();
+  // limitar pestañas si el usuario tiene 'vistas' definidas
+  if(u.vistas){
+    document.querySelectorAll("#sbNav a").forEach(a=>{
+      a.style.display = u.vistas.includes(a.dataset.vista) ? "flex" : "none";
+    });
+    render();
+    cambiarVista(u.vistas[0]);   // abrir la primera pestaña permitida
+  } else {
+    document.querySelectorAll("#sbNav a").forEach(a=>a.style.display="flex");
+    render();
+  }
 }
 
 document.getElementById("pad").addEventListener("click", e=>{
