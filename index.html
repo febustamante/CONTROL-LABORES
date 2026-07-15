@@ -419,10 +419,19 @@ function precioPresup(labor, cuartel){
 async function cargarDatos(){
   await cargarCatalogo();
   await cargarPresupuesto();
-  const { data, error } = await sb
-    .from("folios_labores")
-    .select("folio_pk,folio,estado,grupo,cuartel,labor,grupo_labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado");
-  if(error){ alert("Error al cargar datos: "+error.message); return false; }
+  // Supabase devuelve máx 1000 filas por consulta → paginar para traerlas TODAS
+  const cols="folio_pk,folio,estado,grupo,cuartel,labor,grupo_labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado";
+  let data=[], desde=0, lote=1000;
+  while(true){
+    const { data:pagina, error } = await sb
+      .from("folios_labores")
+      .select(cols)
+      .range(desde, desde+lote-1);
+    if(error){ alert("Error al cargar datos: "+error.message); return false; }
+    data = data.concat(pagina||[]);
+    if(!pagina || pagina.length<lote) break;   // última página
+    desde += lote;
+  }
   const hoy = new Date();
   FOLIOS_ALL = data
     .filter(f=>f.estado!=="ANULADO")   // los anulados quedan fuera de todo
@@ -1305,9 +1314,16 @@ async function _cargar(){
     }
     add('verde',`✓ ${aprob.length} aprobados cargados/actualizados.`);
     // preliminares nuevos: solo si NO existen (respeta aprobados Y anulados)
-    const {data:exist,error:e2}=await sb.from('folios_labores').select('folio_pk');
-    if(e2) throw e2;
-    const yaExisten=new Set((exist||[]).map(r=>r.folio_pk));
+    // paginar (Supabase corta en 1000)
+    let exist=[], d2=0;
+    while(true){
+      const {data:pag,error:e2}=await sb.from('folios_labores').select('folio_pk').range(d2,d2+999);
+      if(e2) throw e2;
+      exist=exist.concat(pag||[]);
+      if(!pag || pag.length<1000) break;
+      d2+=1000;
+    }
+    const yaExisten=new Set(exist.map(r=>r.folio_pk));
     const nuevos=paraCargar.preliminares.filter(f=>!yaExisten.has(f.folio_pk));
     if(nuevos.length){const {error:e3}=await sb.from('folios_labores').insert(nuevos);if(e3) throw e3;}
     add('verde',`✓ ${nuevos.length} preliminares nuevos (${paraCargar.preliminares.length-nuevos.length} ya existían, respetados).`);
