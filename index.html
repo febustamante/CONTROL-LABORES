@@ -421,7 +421,7 @@ async function cargarDatos(){
   await cargarPresupuesto();
   const { data, error } = await sb
     .from("folios_labores")
-    .select("folio,estado,grupo,cuartel,labor,grupo_labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado");
+    .select("folio_pk,folio,estado,grupo,cuartel,labor,grupo_labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado");
   if(error){ alert("Error al cargar datos: "+error.message); return false; }
   const hoy = new Date();
   FOLIOS_ALL = data
@@ -432,7 +432,7 @@ async function cargarDatos(){
         dias = Math.max(0, Math.round((hoy - new Date(f.fecha_creado))/86400000));
       }
       return {
-        folio:f.folio, estado:f.estado, grupo:f.grupo, cuartel:f.cuartel, labor:f.labor,
+        folio_pk:f.folio_pk||f.folio, folio:f.folio, estado:f.estado, grupo:f.grupo, cuartel:f.cuartel, labor:f.labor,
         grupoLabor:f.grupo_labor||"Sin clasificar", encargado:f.encargado, tipo:f.tipo, trab:f.trabajadores||0, plantas:f.plantas||0,
         costo:f.costo||0, creado:f.fecha_creado||"", dias:dias,
         variedad: VARIEDAD_CUARTEL[f.cuartel] || "Sin variedad"
@@ -1154,24 +1154,29 @@ _bind('dropRep','fRep','sRep',wb=>wbRep=wb);
 
 function _procLil(rows){const g={};rows.forEach(r=>{const folio=_S(r['FOLIO']);if(!folio)return;
   const trato=_up(r['TRATO/DIA'])==='TRATO';
-  if(!g[folio])g[folio]={folio,grupo:_S(r['GRUPO CENTRO COSTO']),cuartel:_S(r['CENTRO COSTO']),labor:_S(r['LABOR']),
+  const cuartel=_S(r['CENTRO COSTO']), labor=_S(r['LABOR']);
+  // agrupar por folio + cuartel + labor (un folio -A abarca varias combinaciones)
+  const key=folio+'|'+cuartel+'|'+labor;
+  if(!g[key])g[key]={folio,grupo:_S(r['GRUPO CENTRO COSTO']),cuartel,labor,
     encargado:_S(r['ENCARGADO SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['FECHA']};
-  const o=g[folio];const npl=_N(r['N PLANTAS']);
+  const o=g[key];const npl=_N(r['N PLANTAS']);
   // Cuenta plantas si es TRATO, o si es DIARIO con más de 1 planta (diario=1 es jornada pura)
   if(trato || npl>1){o.trato=o.trato||trato;o.plantas+=npl;}
   o.costo+=_N(r['TOTAL A PAGAR']);o.ruts.add(_S(r['PERSONAL#RUT EMPLEADO']));});
   return Object.values(g).map(o=>_fila(o,'APROBADO'));}
 function _procRep(rows){const g={};rows.forEach(r=>{const folio=_S(r['Número de registro']);if(!folio)return;
   const trato=_up(r['Personal#Tipo Trabajo'])==='TRATO';
-  if(!g[folio])g[folio]={folio,estado:_up(r['Estado Folio']),grupo:_S(r['Grupo Centro Costo']),cuartel:_S(r['Centro Costo']),
-    labor:_S(r['Labor']),encargado:_S(r['Encargado SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['Fecha de Creación']};
-  const o=g[folio];const uds=_N(r['Personal#UnidadesTrabajadasAux']);
+  const cuartel=_S(r['Centro Costo']), labor=_S(r['Labor']);
+  const key=folio+'|'+cuartel+'|'+labor;
+  if(!g[key])g[key]={folio,estado:_up(r['Estado Folio']),grupo:_S(r['Grupo Centro Costo']),cuartel,
+    labor,encargado:_S(r['Encargado SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['Fecha de Creación']};
+  const o=g[key];const uds=_N(r['Personal#UnidadesTrabajadasAux']);
   // Cuenta plantas si es TRATO, o si es DIARIO con más de 1 planta (diario=1 es jornada)
   if(trato || uds>1){o.trato=o.trato||trato;o.plantas+=uds;}
   // En el reporte, TotalContratista es el valor POR PLANTA (ya con ×1,5).
   o.costo+=_N(r['TotalContratista'])*uds;o.ruts.add(_S(r['Personal#Rut Empleado']));});
   return Object.values(g).map(o=>_fila(o,o.estado));}
-function _fila(o,estado){return {folio:o.folio,estado,grupo:o.grupo,cuartel:o.cuartel,labor:o.labor,
+function _fila(o,estado){return {folio_pk:o.folio+'|'+o.cuartel+'|'+o.labor, folio:o.folio,estado,grupo:o.grupo,cuartel:o.cuartel,labor:o.labor,
   grupo_labor:_grupoLab(o.labor),encargado:o.encargado,tipo:o.trato?'TRATO':'DIARIO',
   trabajadores:o.ruts.size,plantas:Math.round(o.plantas),costo:Math.round(o.costo),fecha_creado:_fmt(o.fecha)};}
 
@@ -1246,9 +1251,9 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   // procesar (para el resumen) — solo lo que esté presente
   const lil = rowsLil ? _procLil(rowsLil) : [];
   const rep = rowsRep ? _procRep(rowsRep) : [];
-  const foliosLil=new Set(lil.map(f=>f.folio));
-  const prelim=rep.filter(f=>f.estado==='PRELIMINAR'&&!foliosLil.has(f.folio));
-  const aprobRep=rep.filter(f=>f.estado==='APROBADO'&&!foliosLil.has(f.folio));
+  const foliosLil=new Set(lil.map(f=>f.folio_pk));
+  const prelim=rep.filter(f=>f.estado==='PRELIMINAR'&&!foliosLil.has(f.folio_pk));
+  const aprobRep=rep.filter(f=>f.estado==='APROBADO'&&!foliosLil.has(f.folio_pk));
   paraCargar={aprobados:[...lil,...aprobRep],preliminares:prelim,anular:[]};
   const pAp=paraCargar.aprobados.reduce((s,f)=>s+f.plantas,0);
   const pPr=prelim.reduce((s,f)=>s+f.plantas,0);
@@ -1257,8 +1262,9 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   // detectar los APROBADOS que están en la base pero YA NO en el Excel → se anularán.
   let aAnular=[];
   if(rowsLil){
-    aAnular = FOLIOS_ALL.filter(f=>f.estado==='APROBADO' && !foliosLil.has(f.folio));
-    paraCargar.anular = aAnular.map(f=>f.folio);
+    // no anular folios "-A" (multi-labor que nunca se anulan), y comparar por folio_pk
+    aAnular = FOLIOS_ALL.filter(f=>f.estado==='APROBADO' && !/-A$/i.test(f.folio) && !foliosLil.has(f.folio_pk));
+    paraCargar.anular = aAnular.map(f=>f.folio_pk);
   }
 
   // Si hay errores rojos, NO se permite cargar (botón bloqueado)
@@ -1294,25 +1300,25 @@ async function _cargar(){
   try{
     const aprob=paraCargar.aprobados.map(f=>({...f,fecha_aprobado:f.fecha_creado}));
     for(let i=0;i<aprob.length;i+=500){
-      const {error}=await sb.from('folios_labores').upsert(aprob.slice(i,i+500),{onConflict:'folio'});
+      const {error}=await sb.from('folios_labores').upsert(aprob.slice(i,i+500),{onConflict:'folio_pk'});
       if(error) throw error;
     }
     add('verde',`✓ ${aprob.length} aprobados cargados/actualizados.`);
     // preliminares nuevos: solo si NO existen (respeta aprobados Y anulados)
-    const {data:exist,error:e2}=await sb.from('folios_labores').select('folio');
+    const {data:exist,error:e2}=await sb.from('folios_labores').select('folio_pk');
     if(e2) throw e2;
-    const yaExisten=new Set((exist||[]).map(r=>r.folio));
-    const nuevos=paraCargar.preliminares.filter(f=>!yaExisten.has(f.folio));
+    const yaExisten=new Set((exist||[]).map(r=>r.folio_pk));
+    const nuevos=paraCargar.preliminares.filter(f=>!yaExisten.has(f.folio_pk));
     if(nuevos.length){const {error:e3}=await sb.from('folios_labores').insert(nuevos);if(e3) throw e3;}
     add('verde',`✓ ${nuevos.length} preliminares nuevos (${paraCargar.preliminares.length-nuevos.length} ya existían, respetados).`);
     // SINCRONIZACIÓN: anular los aprobados que ya no vienen en el Excel
     if(paraCargar.anular && paraCargar.anular.length){
       for(let i=0;i<paraCargar.anular.length;i+=200){
         const lote=paraCargar.anular.slice(i,i+200);
-        const {error:e4}=await sb.from('folios_labores').update({estado:'ANULADO'}).in('folio',lote);
+        const {error:e4}=await sb.from('folios_labores').update({estado:'ANULADO'}).in('folio_pk',lote);
         if(e4) throw e4;
       }
-      add('verde',`✓ ${paraCargar.anular.length} aprobados anulados (ya no estaban en el Excel).`);
+      add('verde',`✓ ${paraCargar.anular.length} partes anuladas (ya no estaban en el Excel).`);
     }
     add('verde',`<b>Carga completa.</b> Actualizando vista...`);
     setTimeout(async()=>{ await cargarDatos();
