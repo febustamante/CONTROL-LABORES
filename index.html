@@ -349,12 +349,17 @@ let VARIEDAD_CUARTEL = {};  // { "C08": "AUTUMN CRISP", ... }
 let GRUPO_CUARTEL = {};     // { "C08": "EL CERRILLO", ... }
 let PRESUPUESTO = {};       // { "PODA|C08": 420, ... } precio por planta, clave normalizada
 
-// ¿Este cuartel pasa los filtros activos (campo/variedad/cuartel)?
-// Se usa para acotar el PRESUPUESTO a lo que estás mirando.
+// Normaliza texto de grupo/campo para comparar (mayúsculas, sin tildes, sin espacios extra)
+function normGrupo(s){ return (s||"").toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
+
+// ¿Este cuartel pasa los filtros activos Y el rol del usuario?
 function cuartelPasaFiltro(cua){
+  const g=normGrupo(GRUPO_CUARTEL[cua]);
+  // rol: si el usuario tiene grupos limitados, el cuartel debe pertenecer a uno de ellos
+  if(window.GRUPOS_ROL && !window.GRUPOS_ROL.map(normGrupo).includes(g)) return false;
   if(fCuartel && cua!==fCuartel) return false;
   if(fVariedad && VARIEDAD_CUARTEL[cua]!==fVariedad) return false;
-  if(fCampo && GRUPO_CUARTEL[cua]!==(fCampo||"").toUpperCase()) return false;
+  if(fCampo && g!==normGrupo(fCampo)) return false;
   return true;
 }
 
@@ -461,6 +466,7 @@ async function entrar(codigo){
   if(!ok){ pin=""; dots(); return; }
   // filtrar folios por grupo
   FOLIOS = u.grupos ? FOLIOS_ALL.filter(f=>u.grupos.includes((f.grupo||"").toUpperCase())) : FOLIOS_ALL;
+  window.GRUPOS_ROL = u.grupos ? u.grupos.map(g=>g.toUpperCase()) : null;  // null = ve todo
   window.ES_ADMIN = !!u.admin;
   document.getElementById("login").style.display="none";
   document.getElementById("app").style.display="block";
