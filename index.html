@@ -275,9 +275,8 @@ footer b{color:var(--burdeo)}
     <nav class="sbNav" id="sbNav">
       <a data-vista="resumen" class="activo">▦ Resumen Ejecutivo</a>
       <a data-vista="labores">◷ Labores</a>
-      <a data-vista="cuarteles">▤ Cuarteles</a>
+      <a data-vista="cuarteles">▤ Cuarteles y Folios</a>
       <a data-vista="excedidos">⚠ Excedidos <span class="navBadge" id="navBadgeExc"></span></a>
-      <a data-vista="folios">▣ Folios</a>
     </nav>
     <div class="sbFoot" id="sbFoot"></div>
   </aside>
@@ -287,8 +286,6 @@ footer b{color:var(--burdeo)}
   <div id="resumenNoPresup" style="margin-bottom:14px"></div>
 
   <div class="kpis" id="kpis"></div>
-
-  <div id="panelAtencion" class="atencion"></div>
 
   <div id="panelGer">
     <div class="gerGrid">
@@ -306,25 +303,8 @@ footer b{color:var(--burdeo)}
   <p class="hint">Verde = aprobado · naranja = preliminar. Elige una <b>labor</b> en los filtros para ver el % de avance.</p>
   <div id="gerResumenWrap" class="gerCard wide" style="margin-bottom:16px"><h3>Resumen de cuarteles por labor</h3><p class="hint" style="margin:0 0 10px">Completos (≥95%) · en progreso · sin empezar (&lt;5%).</p><div id="gerResumen"></div></div>
   <div class="cuarteles" id="cuarteles"></div>
-  </section>
 
-  <!-- VISTA: LABORES -->
-  <section class="vista" data-vista="labores" style="display:none">
-  <h2>Detalle por labor</h2>
-  <p class="hint">Presupuesto, gasto y avance de cada labor. Usa los filtros para acotar.</p>
-  <div class="gerCard wide"><div id="laboresDetalle"></div></div>
-  </section>
-
-  <!-- VISTA: EXCEDIDOS -->
-  <section class="vista" data-vista="excedidos" style="display:none">
-  <h2>Excedidos</h2>
-  <p class="hint">Todos los excedidos de tu operación (respeta tu rol, ignora los filtros).</p>
-  <div id="alertaExcedidos"></div>
-  </section>
-
-  <!-- VISTA: FOLIOS -->
-  <section class="vista" data-vista="folios" style="display:none">
-  <h2>Folios para revisar</h2>
+  <h2 style="margin-top:22px">Folios para revisar</h2>
   <div class="bar">
     <div class="seg" id="filtro">
       <button data-f="TODOS" class="on">Todos</button>
@@ -342,6 +322,20 @@ footer b{color:var(--burdeo)}
     <b>Cómo leer las plantas:</b> cuentan las líneas <b>TRATO</b> y las <b>DIARIO con más de 1 planta</b>. Las líneas DIARIO=1 son jornada/asistencia y no cuentan como plantas.<br>
     <b>Datos en vivo desde Supabase.</b> El admin carga los folios del día con el PIN de administrador; los demás solo consultan.
   </footer>
+  </section>
+
+  <!-- VISTA: LABORES -->
+  <section class="vista" data-vista="labores" style="display:none">
+  <h2>Detalle por labor</h2>
+  <p class="hint">Presupuesto, gasto y avance de cada labor. Usa los filtros para acotar.</p>
+  <div class="gerCard wide"><div id="laboresDetalle"></div></div>
+  </section>
+
+  <!-- VISTA: EXCEDIDOS -->
+  <section class="vista" data-vista="excedidos" style="display:none">
+  <h2>Excedidos</h2>
+  <p class="hint">Todos los excedidos de tu operación (respeta tu rol, ignora los filtros).</p>
+  <div id="alertaExcedidos"></div>
   </section>
 </div>
 
@@ -712,8 +706,8 @@ function aplicarCascada(base, hasta){
 
 function render(){
   document.getElementById("fechaRep").textContent = REPORTE;
-  // ===== Cálculos globales (todos los datos del rol, sin filtros de vista) =====
-  const D=FOLIOS;
+  // ===== Cálculos: los KPIs siguen los segmentadores =====
+  const D=aplicarCascada(FOLIOS,5);
   const tot=D.length;
   const prelim=D.filter(f=>f.estado==="PRELIMINAR");
   const aprobados=D.filter(f=>f.estado==="APROBADO");
@@ -745,9 +739,9 @@ function render(){
   const totCuarteles=cuartelesConDatos.length||1;
   const pctComp=Math.round(cComp/totCuarteles*100);
 
-  // excedidos
+  // excedidos: SIEMPRE total (todo el rol, ignora filtros) para no perder ninguno
   let exc=0; const realLC={},plLC={};
-  D.forEach(f=>{ const k=normLabor(f.labor)+"|"+(f.cuartel||"").toUpperCase(); realLC[k]=(realLC[k]||0)+f.costo;
+  FOLIOS.forEach(f=>{ const k=normLabor(f.labor)+"|"+(f.cuartel||"").toUpperCase(); realLC[k]=(realLC[k]||0)+f.costo;
     const k2=f.labor+"|"+(f.cuartel||""); plLC[k2]=(plLC[k2]||0)+f.plantas; });
   Object.entries(realLC).forEach(([k,r])=>{const pr=PRESUPUESTO[k],pl=PLANTAS_TOTALES[k.split("|")[1]];if(pr!=null&&pl&&r/(pr*pl)*100>100)exc++;});
   Object.entries(plLC).forEach(([k,p])=>{const cua=k.split("|")[1],t=PLANTAS_TOTALES[cua];if(t&&p/t*100>105)exc++;});
@@ -766,9 +760,6 @@ function render(){
     K("Costo por planta", "$"+num(costoPorPlanta), "Gasto ÷ plantas trabajadas", "◇")+
     K("Avance físico", avanceFisico!=null?avanceFisico+"%":"—", `${cComp}/${totCuarteles} cuarteles`, "▲", "", avanceFisico)+
     K("Folios pendientes", prelim.length, p3+" con más de 3 días · "+exc+" excedidos", "◷", (p3||exc)?"warn":"");
-
-  // ===== Panel ¿Qué requiere atención hoy? =====
-  drawAtencion({exc, p3, consumo, cSin, labsPresupObj:{realN}});
 
   poblarFiltros();
   drawExcedidos();
@@ -1076,7 +1067,7 @@ document.getElementById("filtro").addEventListener("click",e=>{
 document.getElementById("buscar").addEventListener("input",e=>{busqueda=e.target.value;drawFolios();});
 
 // Los 5 filtros en cascada: al cambiar uno, se repuebla todo y se redibuja
-function onFiltro(){ poblarFiltros(); drawResumenNoPresup(); drawCuarteles(); drawFolios(); drawGerencial(); }
+function onFiltro(){ render(); }
 document.getElementById("fPresup").addEventListener("change",e=>{fPresup=e.target.value; fGrupoLabor=fCampo=fVariedad=fLabor=fCuartel=""; onFiltro();});
 document.getElementById("fGrupoLabor").addEventListener("change",e=>{fGrupoLabor=e.target.value; fCampo=fVariedad=fLabor=fCuartel=""; onFiltro();});
 document.getElementById("fCampo").addEventListener("change",e=>{fCampo=e.target.value; fVariedad=fLabor=fCuartel=""; onFiltro();});
