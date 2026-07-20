@@ -468,8 +468,38 @@ const USUARIOS = {
 let pin = "";
 const dots = ()=>[0,1,2,3].forEach(i=>document.getElementById("d"+i).classList.toggle("on", i<pin.length));
 
+// Traduce una fila de usuarios_sj al formato que usa esta app
+// PINs con vista limitada (solo cuarteles y excedidos), según config original
+const VISTAS_LIMITADAS = { "3344": true, "4455": true };  // Álvaro, Paulina
+function usuarioDesdeTabla(row){
+  if(!row || !row.rol_labores) return null;  // sin acceso a labores
+  const esAdmin = row.rol_labores === 'admin';
+  const esGerencia = row.rol_labores === 'gerencia';
+  const grupos = (esAdmin || esGerencia) ? null
+    : (row.campos && row.campos.length ? row.campos.map(c=>c.toUpperCase()) : null);
+  const u = { nombre: row.nombre, grupos: grupos, admin: esAdmin };
+  if(VISTAS_LIMITADAS[row.pin]){ u.vistas = ["cuarteles","excedidos"]; }
+  return u;
+}
+
 async function entrar(codigo){
-  const u = USUARIOS[codigo];
+  // 1) Buscar en la tabla central de usuarios
+  let u = null;
+  try{
+    const { data, error } = await sb.from('usuarios_sj').select('*').eq('pin',codigo).eq('activo',true).maybeSingle();
+    if(!error && data){
+      u = usuarioDesdeTabla(data);
+      if(!u){
+        document.getElementById("err").textContent = data.nombre+": sin acceso a Labores";
+        pin=""; dots();
+        setTimeout(()=>document.getElementById("err").textContent="", 2000);
+        return;
+      }
+    }
+  }catch(e){ console.warn('No se pudo consultar usuarios_sj, uso PINs locales', e); }
+
+  // 2) Respaldo local si la tabla no respondió o el PIN no está en ella
+  if(!u) u = USUARIOS[codigo];
   if(!u){
     document.getElementById("err").textContent = "PIN incorrecto";
     pin=""; dots();
