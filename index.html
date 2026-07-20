@@ -468,38 +468,8 @@ const USUARIOS = {
 let pin = "";
 const dots = ()=>[0,1,2,3].forEach(i=>document.getElementById("d"+i).classList.toggle("on", i<pin.length));
 
-// Traduce una fila de usuarios_sj al formato que usa esta app
-// PINs con vista limitada (solo cuarteles y excedidos), según config original
-const VISTAS_LIMITADAS = { "3344": true, "4455": true };  // Álvaro, Paulina
-function usuarioDesdeTabla(row){
-  if(!row || !row.rol_labores) return null;  // sin acceso a labores
-  const esAdmin = row.rol_labores === 'admin';
-  const esGerencia = row.rol_labores === 'gerencia';
-  const grupos = (esAdmin || esGerencia) ? null
-    : (row.campos && row.campos.length ? row.campos.map(c=>c.toUpperCase()) : null);
-  const u = { nombre: row.nombre, grupos: grupos, admin: esAdmin };
-  if(VISTAS_LIMITADAS[row.pin]){ u.vistas = ["cuarteles","excedidos"]; }
-  return u;
-}
-
 async function entrar(codigo){
-  // 1) Buscar en la tabla central de usuarios
-  let u = null;
-  try{
-    const { data, error } = await sb.from('usuarios_sj').select('*').eq('pin',codigo).eq('activo',true).maybeSingle();
-    if(!error && data){
-      u = usuarioDesdeTabla(data);
-      if(!u){
-        document.getElementById("err").textContent = data.nombre+": sin acceso a Labores";
-        pin=""; dots();
-        setTimeout(()=>document.getElementById("err").textContent="", 2000);
-        return;
-      }
-    }
-  }catch(e){ console.warn('No se pudo consultar usuarios_sj, uso PINs locales', e); }
-
-  // 2) Respaldo local si la tabla no respondió o el PIN no está en ella
-  if(!u) u = USUARIOS[codigo];
+  const u = USUARIOS[codigo];
   if(!u){
     document.getElementById("err").textContent = "PIN incorrecto";
     pin=""; dots();
@@ -689,35 +659,39 @@ function drawGerencial(){
       const tot=PLANTAS_TOTALES[c]||0;
       const tr=plTrabajadas[c]||0;
       const av=tot>0?Math.round(tr/tot*100):0;
-      let estado = av>=95?"completo" : (av<5?"sin":"prog");
-      return {c, av, estado};
+      const excede = tot>0 && tr>tot;   // registró más plantas que las del cuartel
+      let estado = excede ? "excede" : (av>=95?"completo" : (av<5?"sin":"prog"));
+      return {c, av, estado, excede};
     }).sort((a,b)=>a.av-b.av);
 
     const nComp=items.filter(x=>x.estado==="completo").length;
     const nProg=items.filter(x=>x.estado==="prog").length;
     const nSin =items.filter(x=>x.estado==="sin").length;
+    const nExc =items.filter(x=>x.estado==="excede").length;
     const tot=items.length||1;
     const general=Math.round(items.reduce((s,x)=>s+Math.min(x.av,100),0)/tot);
-    const col=e=>e==="completo"?"#4E9A5F":(e==="prog"?"#D68A3A":"#C7C3BA");
+    const col=e=>e==="excede"?"#C0483B":(e==="completo"?"#4E9A5F":(e==="prog"?"#D68A3A":"#C7C3BA"));
     const txtcol=e=>e==="sin"?"#5F5E5A":"#fff";
 
     cRes.innerHTML=`
       <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
         <span style="font-family:'Fraunces',serif;font-size:30px;font-weight:900">${general}%</span>
-        <span style="font-size:13px;color:var(--gris)">avance general · ${nComp} de ${tot} completos</span>
+        <span style="font-size:13px;color:var(--gris)">avance general · ${nComp} de ${tot} completos${nExc?` · <span style="color:var(--rojo);font-weight:700">${nExc} excedidos</span>`:''}</span>
       </div>
       <div style="display:flex;height:24px;border-radius:6px;overflow:hidden;margin-bottom:8px">
         ${nComp?`<div style="width:${nComp/tot*100}%;background:#4E9A5F;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px">${nComp}</div>`:''}
         ${nProg?`<div style="width:${nProg/tot*100}%;background:#D68A3A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px">${nProg}</div>`:''}
         ${nSin?`<div style="width:${nSin/tot*100}%;background:#C7C3BA;display:flex;align-items:center;justify-content:center;color:#5F5E5A;font-size:11px">${nSin}</div>`:''}
+        ${nExc?`<div style="width:${nExc/tot*100}%;background:#C0483B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px">${nExc}</div>`:''}
       </div>
-      <div style="display:flex;gap:16px;font-size:12px;color:var(--gris);margin-bottom:16px">
+      <div style="display:flex;gap:14px;font-size:12px;color:var(--gris);margin-bottom:16px;flex-wrap:wrap">
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#4E9A5F;margin-right:4px"></span>Completos (≥95%)</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#D68A3A;margin-right:4px"></span>En progreso</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#C7C3BA;margin-right:4px"></span>Sin empezar (&lt;5%)</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#C0483B;margin-right:4px"></span>Excede (&gt;100%)</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px">
-        ${items.map(x=>`<div title="${x.c}: ${x.av}%" style="background:${col(x.estado)};color:${txtcol(x.estado)};text-align:center;padding:7px 2px;border-radius:6px;font-size:11px">${x.c}<div style="font-size:9px;opacity:.85">${x.av}%</div></div>`).join("")}
+        ${items.map(x=>`<div title="${x.c}: ${x.av}%${x.excede?' — EXCEDE':''}" style="background:${col(x.estado)};color:${txtcol(x.estado)};text-align:center;padding:7px 2px;border-radius:6px;font-size:11px">${x.c}<div style="font-size:9px;opacity:.85">${x.av}%${x.excede?' ⚠':''}</div></div>`).join("")}
       </div>`;
   }
   }
@@ -1020,9 +994,19 @@ function drawCuarteles(){
     const total=PLANTAS_TOTALES[c.cuartel];
     let barMax = total || comp;
     const apW=Math.min(100,c.ap/barMax*100), prW=Math.min(100-apW,c.pr/barMax*100);
-    const pct = total?Math.round(comp/total*100):null;
-    let pctTxt = total ? `<b>${pct}%</b> de ${num(total)}` : `<b>${num(comp)}</b> comprom. · total sin cargar`;
-    if(pct!==null && pct>105) pctTxt += ' <span style="color:var(--rojo);font-weight:700">⚠ excede</span>';
+    // porcentaje real (con 1 decimal si se pasa del 100%, para no ocultar excesos chicos)
+    let pctTxt;
+    if(total){
+      const pctReal = comp/total*100;
+      const pctMostrar = pctReal>100 ? pctReal.toFixed(1) : Math.round(pctReal);
+      pctTxt = `<b>${pctMostrar}%</b> de ${num(total)}`;
+      if(comp>total){
+        const demas = comp-total;
+        pctTxt += ` <span style="color:var(--rojo);font-weight:700">⚠ excede por ${num(demas)}</span>`;
+      }
+    } else {
+      pctTxt = `<b>${num(comp)}</b> comprom. · total sin cargar`;
+    }
 
     // Presupuesto del cuartel para la labor elegida
     let presupLine="";
@@ -1343,20 +1327,33 @@ async function _cargar(){
       if(error) throw error;
     }
     add('verde',`✓ ${aprob.length} aprobados cargados/actualizados.`);
-    // preliminares nuevos: solo si NO existen (respeta aprobados Y anulados)
+    // números de folio que quedaron APROBADOS en esta carga (Liliana manda)
+    const foliosAprobados=new Set(aprob.map(f=>f.folio));
+    // preliminares nuevos: solo si NO existen Y su folio no está aprobado
     // paginar (Supabase corta en 1000)
     let exist=[], d2=0;
     while(true){
-      const {data:pag,error:e2}=await sb.from('folios_labores').select('folio_pk').range(d2,d2+999);
+      const {data:pag,error:e2}=await sb.from('folios_labores').select('folio_pk,folio,estado').range(d2,d2+999);
       if(e2) throw e2;
       exist=exist.concat(pag||[]);
       if(!pag || pag.length<1000) break;
       d2+=1000;
     }
     const yaExisten=new Set(exist.map(r=>r.folio_pk));
-    const nuevos=paraCargar.preliminares.filter(f=>!yaExisten.has(f.folio_pk));
+    // un preliminar entra solo si: no existe ya, y su número de folio no está aprobado
+    const nuevos=paraCargar.preliminares.filter(f=>!yaExisten.has(f.folio_pk) && !foliosAprobados.has(f.folio));
     if(nuevos.length){const {error:e3}=await sb.from('folios_labores').insert(nuevos);if(e3) throw e3;}
-    add('verde',`✓ ${nuevos.length} preliminares nuevos (${paraCargar.preliminares.length-nuevos.length} ya existían, respetados).`);
+    add('verde',`✓ ${nuevos.length} preliminares nuevos (${paraCargar.preliminares.length-nuevos.length} descartados por ya existir o estar aprobados).`);
+    // LILIANA GANA: anular preliminares viejos cuyo folio ahora está APROBADO (aunque tengan otro cuartel)
+    const prelimAborrar = exist.filter(r=>r.estado==='PRELIMINAR' && foliosAprobados.has(r.folio)).map(r=>r.folio_pk);
+    if(prelimAborrar.length){
+      for(let i=0;i<prelimAborrar.length;i+=200){
+        const lote=prelimAborrar.slice(i,i+200);
+        const {error:e5}=await sb.from('folios_labores').update({estado:'ANULADO'}).in('folio_pk',lote);
+        if(e5) throw e5;
+      }
+      add('verde',`✓ ${prelimAborrar.length} preliminares viejos anulados (su folio ya fue aprobado por Liliana).`);
+    }
     // SINCRONIZACIÓN: anular los aprobados que ya no vienen en el Excel
     if(paraCargar.anular && paraCargar.anular.length){
       for(let i=0;i<paraCargar.anular.length;i+=200){
