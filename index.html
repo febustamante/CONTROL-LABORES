@@ -451,7 +451,20 @@ async function cargarDatos(){
   // fallback de grupo por cuartel: lo que digan los folios (por si el catálogo lo tiene vacío)
   GRUPO_CUARTEL_FOLIO = {};
   FOLIOS_ALL.forEach(f=>{ if(f.cuartel && f.grupo) GRUPO_CUARTEL_FOLIO[f.cuartel.toUpperCase()]=f.grupo; });
+  // cargar excedidos ya revisados/justificados
+  await cargarRevisados();
   return true;
+}
+
+// Excedidos que el admin marcó como revisados (con observación) → salen de las alertas
+let EXC_REVISADOS = {};  // { "labor|cuartel": {observacion, revisado_por} }
+async function cargarRevisados(){
+  EXC_REVISADOS = {};
+  try{
+    const {data,error}=await sb.from("excedidos_revisados").select("clave,observacion,revisado_por");
+    if(error){ console.warn("excedidos_revisados:",error.message); return; }
+    (data||[]).forEach(r=>{ EXC_REVISADOS[r.clave]={observacion:r.observacion,revisado_por:r.revisado_por}; });
+  }catch(e){ console.warn("No se pudo cargar excedidos_revisados",e); }
 }
 
 // ====== ACCESOS (PIN de 4 dígitos) ======
@@ -779,12 +792,14 @@ function render(){
   const totCuarteles=cuartelesConDatos.length||1;
   const pctComp=Math.round(cComp/totCuarteles*100);
 
-  // excedidos: SIEMPRE total (todo el rol, ignora filtros) para no perder ninguno
+  // excedidos: SIEMPRE total (todo el rol, ignora filtros); descuenta los justificados
   let exc=0; const realLC={},plLC={};
-  FOLIOS.forEach(f=>{ const k=normLabor(f.labor)+"|"+(f.cuartel||"").toUpperCase(); realLC[k]=(realLC[k]||0)+f.costo;
-    const k2=f.labor+"|"+(f.cuartel||""); plLC[k2]=(plLC[k2]||0)+f.plantas; });
-  Object.entries(realLC).forEach(([k,r])=>{const pr=PRESUPUESTO[k],pl=PLANTAS_TOTALES[k.split("|")[1]];if(pr!=null&&pl&&r/(pr*pl)*100>100)exc++;});
-  Object.entries(plLC).forEach(([k,p])=>{const cua=k.split("|")[1],t=PLANTAS_TOTALES[cua];if(t&&p/t*100>105)exc++;});
+  FOLIOS.forEach(f=>{ const k=f.labor+"|"+(f.cuartel||""); 
+    if(!realLC[k]) realLC[k]={real:0,labor:f.labor,cuartel:f.cuartel}; realLC[k].real+=f.costo;
+    if(!plLC[k]) plLC[k]={pl:0,labor:f.labor,cuartel:f.cuartel}; plLC[k].pl+=f.plantas; });
+  const estaRev=(labor,cuartel)=>!!EXC_REVISADOS[labor+"|"+cuartel];
+  Object.values(realLC).forEach(d=>{const pk=normLabor(d.labor)+"|"+(d.cuartel||"").toUpperCase();const pr=PRESUPUESTO[pk],pl=PLANTAS_TOTALES[d.cuartel];if(pr!=null&&pl&&d.real/(pr*pl)*100>100 && !estaRev(d.labor,d.cuartel))exc++;});
+  Object.values(plLC).forEach(d=>{const t=PLANTAS_TOTALES[d.cuartel];if(t&&d.pl>t && !estaRev(d.labor,d.cuartel))exc++;});
 
   // ===== Fila de KPIs (spec) =====
   const sem=v=>v>100?'bad':(v>85?'warn':'ok');
@@ -895,52 +910,117 @@ function drawResumenNoPresup(){
 function drawExcedidos(){
   const cont=document.getElementById("alertaExcedidos");
   if(!cont) return;
+  const esRev = (labor,cuartel)=>!!EXC_REVISADOS[labor+"|"+cuartel];
   // Excedidos en PLATA: labor+cuartel donde gasto real > presupuesto (>100%)
   const realLC={};
   FOLIOS.forEach(f=>{ const k=normLabor(f.labor)+"|"+(f.cuartel||"").toUpperCase();
     if(!realLC[k]) realLC[k]={real:0,labor:f.labor,cuartel:f.cuartel}; realLC[k].real+=f.costo; });
-  const excPlata=[];
+  let excPlata=[];
   Object.entries(realLC).forEach(([k,d])=>{
     const precio=PRESUPUESTO[k]; const plantas=PLANTAS_TOTALES[k.split("|")[1]];
     if(precio!=null && plantas){ const presup=precio*plantas;
       const pc=presup>0?Math.round(d.real/presup*100):0;
-      if(pc>100) excPlata.push({cuartel:d.cuartel,labor:d.labor,presup,real:d.real,pc}); }
+      if(pc>100) excPlata.push({tipo:'plata',cuartel:d.cuartel,labor:d.labor,presup,real:d.real,pc}); }
   });
   excPlata.sort((a,b)=>b.pc-a.pc);
-  // Excedidos en PLANTAS: plantas registradas > plantas del cuartel (>105%)
+  // Excedidos en PLANTAS: plantas registradas > plantas del cuartel (cualquier exceso)
   const plLC={};
   FOLIOS.forEach(f=>{ const k=f.labor+"|"+(f.cuartel||"");
     if(!plLC[k]) plLC[k]={pl:0,labor:f.labor,cuartel:f.cuartel}; plLC[k].pl+=f.plantas; });
-  const excPlantas=[];
+  let excPlantas=[];
   Object.values(plLC).forEach(d=>{ const total=PLANTAS_TOTALES[d.cuartel];
-    if(total){ const pc=Math.round(d.pl/total*100);
-      if(pc>105) excPlantas.push({cuartel:d.cuartel,labor:d.labor,total,pl:d.pl,pc}); } });
+    if(total && d.pl>total){ const pc=Math.round(d.pl/total*100*10)/10;
+      excPlantas.push({tipo:'plantas',cuartel:d.cuartel,labor:d.labor,total,pl:d.pl,pc}); } });
   excPlantas.sort((a,b)=>b.pc-a.pc);
 
-  // actualizar el badge del nav con el contador
+  // separar los ya justificados (revisados) de las alertas activas
+  const justificados = [...excPlata,...excPlantas].filter(x=>esRev(x.labor,x.cuartel));
+  excPlata   = excPlata.filter(x=>!esRev(x.labor,x.cuartel));
+  excPlantas = excPlantas.filter(x=>!esRev(x.labor,x.cuartel));
+
   const totalExc=excPlata.length+excPlantas.length;
   const badge=document.getElementById("navBadgeExc");
   if(badge) badge.textContent = totalExc || "";
 
-  if(!excPlata.length && !excPlantas.length){
-    cont.innerHTML=`<div style="background:var(--verde-bg);border:1px solid var(--verde);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--verde);font-weight:600">✓ Todo dentro de presupuesto y avance. Sin excedidos.</div>`;
-    return;
-  }
+  const admin = !!window.ES_ADMIN;
+  // botón justificar (solo admin), en cada fila
+  const btnJus=(x)=> admin ? `<td><button class="btnJustif" data-labor="${encodeURIComponent(x.labor)}" data-cuartel="${encodeURIComponent(x.cuartel)}" data-tipo="${x.tipo}" style="border:1px solid var(--linea);background:#fff;color:var(--verde);font-family:inherit;font-size:11px;font-weight:600;padding:3px 9px;border-radius:8px;cursor:pointer">Justificar</button></td>` : '';
+
+  const thAcc = admin ? '<th></th>' : '';
   const tabla=(titulo,subt,filas,cols)=>`
     <div style="background:#fff;border:1px solid var(--rojo);border-radius:12px;padding:14px 16px;flex:1;min-width:300px">
-      <h3 style="font-family:'Fraunces',serif;font-size:15px;color:var(--rojo);margin:0 0 2px">${titulo} <span style="background:var(--rojo);color:#fff;border-radius:10px;padding:1px 8px;font-size:12px">${filas.split('<tr>').length-1}</span></h3>
+      <h3 style="font-family:'Fraunces',serif;font-size:15px;color:var(--rojo);margin:0 0 2px">${titulo} <span style="background:var(--rojo);color:#fff;border-radius:10px;padding:1px 8px;font-size:12px">${(filas.match(/<tr>/g)||[]).length}</span></h3>
       <p style="font-size:11px;color:var(--gris);margin:0 0 10px">${subt}</p>
       <table class="gtabla">${cols}${filas}</table></div>`;
-  const filasPlata=excPlata.map(x=>`<tr><td>${x.cuartel}</td><td>${x.labor}</td><td class="num">${money(x.presup)}</td><td class="num">${money(x.real)}</td><td class="num" style="color:var(--rojo);font-weight:700">${x.pc}%</td></tr>`).join("");
-  const filasPl=excPlantas.map(x=>`<tr><td>${x.cuartel}</td><td>${x.labor}</td><td class="num">${num(x.total)}</td><td class="num">${num(x.pl)}</td><td class="num" style="color:var(--rojo);font-weight:700">${x.pc}%</td></tr>`).join("");
-  cont.innerHTML=`
-    <div style="background:var(--rojo-bg);border:1px solid var(--rojo);border-radius:12px;padding:8px 14px;margin-bottom:10px;font-size:13px;color:var(--rojo);font-weight:700">
-      ⚠ ${excPlata.length} excedido(s) en plata · ${excPlantas.length} en plantas (posibles errores de registro)
-    </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap">
-      ${excPlata.length?tabla("Excedidos en plata","Gasto real supera el presupuesto de la labor en ese cuartel.",filasPlata,`<tr><th>Cuartel</th><th>Labor</th><th style="text-align:right">Presup.</th><th style="text-align:right">Gastado</th><th style="text-align:right">%</th></tr>`):''}
-      ${excPlantas.length?tabla("Excedidos en plantas","Plantas registradas superan las del cuartel — revisar registro.",filasPl,`<tr><th>Cuartel</th><th>Labor</th><th style="text-align:right">Cuartel</th><th style="text-align:right">Registrado</th><th style="text-align:right">%</th></tr>`):''}
-    </div>`;
+  const filasPlata=excPlata.map(x=>`<tr><td>${x.cuartel}</td><td>${x.labor}</td><td class="num">${money(x.presup)}</td><td class="num">${money(x.real)}</td><td class="num" style="color:var(--rojo);font-weight:700">${x.pc}%</td>${btnJus(x)}</tr>`).join("");
+  const filasPl=excPlantas.map(x=>`<tr><td>${x.cuartel}</td><td>${x.labor}</td><td class="num">${num(x.total)}</td><td class="num">${num(x.pl)}</td><td class="num" style="color:var(--rojo);font-weight:700">${x.pc}%</td>${btnJus(x)}</tr>`).join("");
+
+  let html="";
+  if(!excPlata.length && !excPlantas.length){
+    html=`<div style="background:var(--verde-bg);border:1px solid var(--verde);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--verde);font-weight:600">✓ Sin excedidos activos.${justificados.length?` (${justificados.length} justificado(s) más abajo)`:''}</div>`;
+  } else {
+    html=`
+      <div style="background:var(--rojo-bg);border:1px solid var(--rojo);border-radius:12px;padding:8px 14px;margin-bottom:10px;font-size:13px;color:var(--rojo);font-weight:700">
+        ⚠ ${excPlata.length} excedido(s) en plata · ${excPlantas.length} en plantas (posibles errores de registro)
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        ${excPlata.length?tabla("Excedidos en plata","Gasto real supera el presupuesto de la labor en ese cuartel.",filasPlata,`<tr><th>Cuartel</th><th>Labor</th><th style="text-align:right">Presup.</th><th style="text-align:right">Gastado</th><th style="text-align:right">%</th>${thAcc}</tr>`):''}
+        ${excPlantas.length?tabla("Excedidos en plantas","Plantas registradas superan las del cuartel — revisar registro.",filasPl,`<tr><th>Cuartel</th><th>Labor</th><th style="text-align:right">Cuartel</th><th style="text-align:right">Registrado</th><th style="text-align:right">%</th>${thAcc}</tr>`):''}
+      </div>`;
+  }
+
+  // sección de justificados (revisados) — visible para admin, con opción de reactivar
+  if(justificados.length){
+    const filasJ=justificados.map(x=>{
+      const rev=EXC_REVISADOS[x.labor+"|"+x.cuartel]||{};
+      const acc = admin ? `<td><button class="btnReactivar" data-labor="${encodeURIComponent(x.labor)}" data-cuartel="${encodeURIComponent(x.cuartel)}" style="border:1px solid var(--linea);background:#fff;color:var(--gris);font-family:inherit;font-size:11px;padding:3px 9px;border-radius:8px;cursor:pointer">Reactivar</button></td>`:'';
+      return `<tr><td>${x.cuartel}</td><td>${x.labor}</td><td>${x.tipo}</td><td style="color:var(--gris)">${rev.observacion||''}</td>${acc}</tr>`;
+    }).join("");
+    html+=`<div style="background:#fff;border:1px solid var(--linea);border-radius:12px;padding:14px 16px;margin-top:12px">
+      <h3 style="font-family:'Fraunces',serif;font-size:15px;color:var(--tinta);margin:0 0 2px">Excedidos justificados ✓ <span style="color:var(--gris);font-size:12px;font-weight:400">(revisados, fuera de alertas)</span></h3>
+      <p style="font-size:11px;color:var(--gris);margin:0 0 10px">Marcados como revisados con explicación. No cuentan como alerta.</p>
+      <table class="gtabla"><tr><th>Cuartel</th><th>Labor</th><th>Tipo</th><th>Observación</th>${admin?'<th></th>':''}</tr>${filasJ}</table></div>`;
+  }
+  cont.innerHTML=html;
+
+  // listeners de los botones (solo admin)
+  if(admin){
+    cont.querySelectorAll(".btnJustif").forEach(b=>b.addEventListener("click",()=>{
+      justificarExcedido(decodeURIComponent(b.dataset.labor),decodeURIComponent(b.dataset.cuartel),b.dataset.tipo);
+    }));
+    cont.querySelectorAll(".btnReactivar").forEach(b=>b.addEventListener("click",()=>{
+      reactivarExcedido(decodeURIComponent(b.dataset.labor),decodeURIComponent(b.dataset.cuartel));
+    }));
+  }
+}
+
+// Admin marca un excedido como revisado (con observación) → guarda en Supabase y sale de alertas
+async function justificarExcedido(labor,cuartel,tipo){
+  if(!window.ES_ADMIN) return;
+  const obs=prompt(`Justificar excedido de ${labor} en ${cuartel}.\n\nEscribe la explicación (por qué está bien este excedido):`);
+  if(obs===null) return;  // canceló
+  const clave=labor+"|"+cuartel;
+  try{
+    const {error}=await sb.from("excedidos_revisados").upsert(
+      {clave,tipo,observacion:obs,revisado_por:"Admin"},{onConflict:'clave'});
+    if(error) throw error;
+    EXC_REVISADOS[clave]={observacion:obs,revisado_por:"Admin"};
+    drawExcedidos();
+    render();
+  }catch(e){ alert("No se pudo guardar: "+(e.message||e)); }
+}
+// Admin reactiva un excedido justificado → vuelve a las alertas
+async function reactivarExcedido(labor,cuartel){
+  if(!window.ES_ADMIN) return;
+  if(!confirm(`¿Reactivar el excedido de ${labor} en ${cuartel}? Volverá a las alertas.`)) return;
+  const clave=labor+"|"+cuartel;
+  try{
+    const {error}=await sb.from("excedidos_revisados").delete().eq("clave",clave);
+    if(error) throw error;
+    delete EXC_REVISADOS[clave];
+    drawExcedidos();
+    render();
+  }catch(e){ alert("No se pudo reactivar: "+(e.message||e)); }
 }
 
 // Puebla los 5 selects: cada uno muestra solo lo que dejan los filtros anteriores
