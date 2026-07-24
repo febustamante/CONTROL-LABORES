@@ -143,6 +143,9 @@ h2{font-family:'Fraunces',serif;font-weight:700;font-size:18px;color:var(--tinta
 /* TABLA / TARJETAS FOLIOS */
 .folios{display:flex;flex-direction:column;gap:9px;margin-top:6px}
 .f{background:var(--papel);border:1px solid var(--linea);border-left-width:4px;border-radius:11px;padding:13px 15px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 16px;align-items:center;transition:.15s}
+.fgrupo{margin-bottom:8px}
+.fgcab:hover{background:var(--crema);border-color:var(--dorado-cl)}
+.fgdetalle .f{margin-bottom:6px;opacity:.97}
 .f:hover{border-color:var(--dorado);box-shadow:0 3px 14px rgba(123,45,45,.07)}
 .f.prelim{border-left-color:var(--naranja)} .f.aprob{border-left-color:var(--verde)}
 .f .id{grid-row:1/3;display:flex;flex-direction:column;gap:5px;align-items:flex-start;min-width:104px}
@@ -312,6 +315,8 @@ footer b{color:var(--burdeo)}
       <button data-f="APROBADO">Aprobados</button>
     </div>
     <input class="search" id="buscar" placeholder="Buscar folio, cuartel, labor o encargado…">
+    <input type="date" id="fFecha" class="search" style="max-width:170px" title="Filtrar por fecha del folio">
+    <button id="limpiarFecha" style="border:1px solid var(--linea);background:#fff;color:var(--gris);font-family:inherit;font-size:12px;padding:8px 12px;border-radius:9px;cursor:pointer">Todas las fechas</button>
     <span class="count" id="conteo"></span>
   </div>
   <div class="folios" id="folios"></div>
@@ -735,7 +740,7 @@ function drawGerencial(){
 }
 
 // ====== ESTADO DE FILTROS (5 en cascada) ======
-let filtroActual="TODOS", busqueda="";
+let filtroActual="TODOS", busqueda="", fechaFiltro="";
 let fPresup="", fGrupoLabor="", fCampo="", fVariedad="", fLabor="", fCuartel="";
 
 // ¿La labor+cuartel de este folio está presupuestada?
@@ -1120,16 +1125,30 @@ function drawFolios(){
   if(filtroActual!=="TODOS") list=list.filter(f=>f.estado===filtroActual);
   if(busqueda){const q=busqueda.toLowerCase();
     list=list.filter(f=>(f.folio+f.cuartel+f.labor+f.encargado+f.grupo).toLowerCase().includes(q));}
+  // filtro por fecha del folio (cuándo se hizo el trabajo)
+  if(fechaFiltro){
+    list=list.filter(f=>_fechaISO(f.creado)===fechaFiltro);
+  }
   list.sort((a,b)=>{
     if(a.estado!==b.estado) return a.estado==="PRELIMINAR"?-1:1;
     return a.cuartel<b.cuartel?-1:1;
   });
 
-  document.getElementById("conteo").textContent=list.length+" folio"+(list.length!==1?"s":"");
   const cont=document.getElementById("folios");
+
+  // ===== AGRUPAR folios -A (mismo número, varias partes) =====
+  const grupos={};   // folio -A -> [partes]
+  const sueltos=[];  // folios normales (una sola parte)
+  list.forEach(f=>{
+    if(/-A$/i.test(f.folio)){ (grupos[f.folio]=grupos[f.folio]||[]).push(f); }
+    else sueltos.push(f);
+  });
+
+  const nGrupos=Object.keys(grupos).length;
+  document.getElementById("conteo").textContent=(sueltos.length+nGrupos)+" folio"+((sueltos.length+nGrupos)!==1?"s":"");
   if(!list.length){cont.innerHTML='<p class="empty">No hay folios que coincidan.</p>';return;}
 
-  cont.innerHTML=list.map(f=>{
+  const tarjeta=(f)=>{
     const a=alerta(f);
     const isPr=f.estado==="PRELIMINAR";
     const total=PLANTAS_TOTALES[f.cuartel];
@@ -1165,12 +1184,72 @@ function drawFolios(){
         ${(window.ES_ADMIN && isPr)?`<div><button class="btnAnular" data-folio="${f.folio}" style="margin-top:6px;border:1px solid var(--rojo);background:#fff;color:var(--rojo);font-family:inherit;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;cursor:pointer">Anular</button></div>`:''}
       </div>
     </div>`;
-  }).join("");
+  };
+
+  // tarjeta resumen de un folio -A agrupado (clic para expandir)
+  const tarjetaGrupo=(folio,partes)=>{
+    const plT=partes.reduce((s,p)=>s+p.plantas,0);
+    const coT=partes.reduce((s,p)=>s+p.costo,0);
+    const isPr=partes.some(p=>p.estado==="PRELIMINAR");
+    const enc=partes[0].encargado;
+    const labores=[...new Set(partes.map(p=>p.labor))];
+    const cuarteles=[...new Set(partes.map(p=>p.cuartel))];
+    return `<div class="fgrupo">
+      <div class="f ${isPr?'prelim':'aprob'} fgcab" data-folio="${folio}" style="cursor:pointer">
+        <div class="id">
+          <span class="folio">${folio} <span style="font-size:11px;color:var(--gris)">▶</span></span>
+          <span class="badge ${isPr?'prelim':'aprob'}">${isPr?'PRELIMINAR':'APROBADO'}</span>
+          <span class="tipo">${partes.length} partes</span>
+        </div>
+        <div class="mid">
+          <div class="loc"><b>${folio}</b> · folio con varias labores</div>
+          <div class="meta">
+            <span>📋 ${enc}</span>
+            <span>${labores.length} labor(es): ${labores.slice(0,3).join(", ")}${labores.length>3?'…':''}</span>
+            <span>${cuarteles.length} cuartel(es)</span>
+            <span style="color:var(--verde)">▶ toca para ver el detalle</span>
+          </div>
+        </div>
+        <div class="right">
+          <div class="plt">${num(plT)}</div>
+          <div class="pltlbl">plantas total</div>
+          ${coT>0?`<div class="costo">${money(coT)}</div>`:''}
+        </div>
+      </div>
+      <div class="fgdetalle" data-folio="${folio}" style="display:none;padding-left:20px;border-left:3px solid var(--dorado-cl);margin:4px 0 10px">
+        ${partes.map(tarjeta).join("")}
+      </div>
+    </div>`;
+  };
+
+  // construir el HTML: primero sueltos, luego grupos -A
+  let html = sueltos.map(tarjeta).join("");
+  html += Object.entries(grupos).map(([folio,partes])=>tarjetaGrupo(folio,partes)).join("");
+  cont.innerHTML=html;
+
+  // expandir/colapsar grupos -A
+  cont.querySelectorAll(".fgcab").forEach(cab=>{
+    cab.addEventListener("click",e=>{
+      if(e.target.closest(".btnAnular")) return;
+      const folio=cab.dataset.folio;
+      const det=cont.querySelector(`.fgdetalle[data-folio="${CSS.escape(folio)}"]`);
+      if(det){ const abierto=det.style.display!=="none"; det.style.display=abierto?"none":"block";
+        const flecha=cab.querySelector(".folio span"); if(flecha) flecha.textContent=abierto?"▶":"▼"; }
+    });
+  });
 
   // listeners de los botones anular (solo existen si es admin)
   document.querySelectorAll(".btnAnular").forEach(b=>{
-    b.addEventListener("click", ()=>anularFolio(b.dataset.folio));
+    b.addEventListener("click", (e)=>{e.stopPropagation();anularFolio(b.dataset.folio);});
   });
+}
+
+// convierte una fecha (texto o Date) a formato ISO YYYY-MM-DD para comparar
+function _fechaISO(f){
+  if(!f) return "";
+  const d=new Date(f);
+  if(isNaN(d)) return "";
+  return d.toISOString().slice(0,10);
 }
 
 async function anularFolio(folio){
@@ -1195,6 +1274,8 @@ document.getElementById("filtro").addEventListener("click",e=>{
   e.target.classList.add("on"); filtroActual=e.target.dataset.f; drawFolios();
 });
 document.getElementById("buscar").addEventListener("input",e=>{busqueda=e.target.value;drawFolios();});
+document.getElementById("fFecha").addEventListener("change",e=>{fechaFiltro=e.target.value;drawFolios();});
+document.getElementById("limpiarFecha").addEventListener("click",()=>{fechaFiltro="";document.getElementById("fFecha").value="";drawFolios();});
 
 // Los 5 filtros en cascada: al cambiar uno, se repuebla todo y se redibuja
 function onFiltro(){ render(); }
