@@ -1135,19 +1135,7 @@ function drawFolios(){
   });
 
   const cont=document.getElementById("folios");
-
-  // ===== AGRUPAR folios -A (mismo número, varias partes) =====
-  const grupos={};   // folio -A -> [partes]
-  const sueltos=[];  // folios normales (una sola parte)
-  list.forEach(f=>{
-    if(/-A$/i.test(f.folio)){ (grupos[f.folio]=grupos[f.folio]||[]).push(f); }
-    else sueltos.push(f);
-  });
-
-  const gruposReales=Object.values(grupos).filter(p=>p.length>1).length;
-  const gruposUnicos=Object.values(grupos).filter(p=>p.length===1).length;
-  const totalMostrado=sueltos.length+gruposReales+gruposUnicos;
-  document.getElementById("conteo").textContent=totalMostrado+" folio"+(totalMostrado!==1?"s":"");
+  document.getElementById("conteo").textContent=list.length+" folio"+(list.length!==1?"s":"");
   if(!list.length){cont.innerHTML='<p class="empty">No hay folios que coincidan.</p>';return;}
 
   const tarjeta=(f)=>{
@@ -1189,63 +1177,7 @@ function drawFolios(){
     </div>`;
   };
 
-  // tarjeta resumen de un folio -A agrupado (clic para expandir)
-  const tarjetaGrupo=(folio,partes)=>{
-    const plT=partes.reduce((s,p)=>s+p.plantas,0);
-    const coT=partes.reduce((s,p)=>s+p.costo,0);
-    const isPr=partes.some(p=>p.estado==="PRELIMINAR");
-    const enc=partes[0].encargado;
-    const labores=[...new Set(partes.map(p=>p.labor))];
-    const cuarteles=[...new Set(partes.map(p=>p.cuartel))];
-    const fechas=[...new Set(partes.map(p=>p.creado).filter(Boolean))].sort();
-    const fechaTxt = fechas.length ? (fechas.length===1?_fechaCorta(fechas[0]):`${_fechaCorta(fechas[0])}–${_fechaCorta(fechas[fechas.length-1])}`) : "";
-    return `<div class="fgrupo">
-      <div class="f ${isPr?'prelim':'aprob'} fgcab" data-folio="${folio}" style="cursor:pointer">
-        <div class="id">
-          <span class="folio">${folio} <span style="font-size:11px;color:var(--gris)">▶</span></span>
-          <span class="badge ${isPr?'prelim':'aprob'}">${isPr?'PRELIMINAR':'APROBADO'}</span>
-          <span class="tipo">${partes.length} partes</span>
-        </div>
-        <div class="mid">
-          <div class="loc"><b>${folio}</b> · folio con varias labores</div>
-          <div class="meta">
-            <span>📋 ${enc}</span>
-            ${fechaTxt?`<span>📅 ${fechaTxt}</span>`:''}
-            <span>${labores.length} labor(es): ${labores.slice(0,3).join(", ")}${labores.length>3?'…':''}</span>
-            <span>${cuarteles.length} cuartel(es)</span>
-            <span style="color:var(--verde)">▶ toca para ver el detalle</span>
-          </div>
-        </div>
-        <div class="right">
-          <div class="plt">${num(plT)}</div>
-          <div class="pltlbl">plantas total</div>
-          ${coT>0?`<div class="costo">${money(coT)}</div>`:''}
-        </div>
-      </div>
-      <div class="fgdetalle" data-folio="${folio}" style="display:none;padding-left:20px;border-left:3px solid var(--dorado-cl);margin:4px 0 10px">
-        ${partes.map(tarjeta).join("")}
-      </div>
-    </div>`;
-  };
-
-  // construir el HTML: primero sueltos, luego grupos -A
-  // (un folio -A con una sola parte se muestra como tarjeta normal, no como grupo)
-  let html = sueltos.map(tarjeta).join("");
-  html += Object.entries(grupos).map(([folio,partes])=>
-    partes.length>1 ? tarjetaGrupo(folio,partes) : tarjeta(partes[0])
-  ).join("");
-  cont.innerHTML=html;
-
-  // expandir/colapsar grupos -A
-  cont.querySelectorAll(".fgcab").forEach(cab=>{
-    cab.addEventListener("click",e=>{
-      if(e.target.closest(".btnAnular")) return;
-      const folio=cab.dataset.folio;
-      const det=cont.querySelector(`.fgdetalle[data-folio="${CSS.escape(folio)}"]`);
-      if(det){ const abierto=det.style.display!=="none"; det.style.display=abierto?"none":"block";
-        const flecha=cab.querySelector(".folio span"); if(flecha) flecha.textContent=abierto?"▶":"▼"; }
-    });
-  });
+  cont.innerHTML=list.map(tarjeta).join("");
 
   // listeners de los botones anular (solo existen si es admin)
   document.querySelectorAll(".btnAnular").forEach(b=>{
@@ -1253,20 +1185,25 @@ function drawFolios(){
   });
 }
 
-// convierte una fecha (texto o Date) a formato ISO YYYY-MM-DD para comparar
+// convierte una fecha (texto o Date) a YYYY-MM-DD SIN corrimiento de zona horaria
 function _fechaISO(f){
   if(!f) return "";
+  // si ya viene como "YYYY-MM-DD" (o empieza así), usar directo sin convertir
+  const m=String(f).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return m[1]+"-"+m[2]+"-"+m[3];
   const d=new Date(f);
   if(isNaN(d)) return "";
-  return d.toISOString().slice(0,10);
+  const z=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
 }
-// fecha corta legible: "15-jul" o "15-jul-26"
+// fecha corta legible: "15-jul"
 function _fechaCorta(f){
   if(!f) return "";
-  const d=new Date(f);
-  if(isNaN(d)) return String(f);
-  const mes=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][d.getMonth()];
-  return String(d.getDate()).padStart(2,'0')+"-"+mes;
+  const iso=_fechaISO(f);
+  if(!iso) return String(f);
+  const [y,mo,da]=iso.split("-");
+  const mes=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][parseInt(mo)-1];
+  return da+"-"+mes;
 }
 
 async function anularFolio(folio){
