@@ -1144,8 +1144,10 @@ function drawFolios(){
     else sueltos.push(f);
   });
 
-  const nGrupos=Object.keys(grupos).length;
-  document.getElementById("conteo").textContent=(sueltos.length+nGrupos)+" folio"+((sueltos.length+nGrupos)!==1?"s":"");
+  const gruposReales=Object.values(grupos).filter(p=>p.length>1).length;
+  const gruposUnicos=Object.values(grupos).filter(p=>p.length===1).length;
+  const totalMostrado=sueltos.length+gruposReales+gruposUnicos;
+  document.getElementById("conteo").textContent=totalMostrado+" folio"+(totalMostrado!==1?"s":"");
   if(!list.length){cont.innerHTML='<p class="empty">No hay folios que coincidan.</p>';return;}
 
   const tarjeta=(f)=>{
@@ -1172,6 +1174,7 @@ function drawFolios(){
         <div class="meta">
           <span>👤 <b>${f.trab}</b> trab.</span>
           <span>📋 ${f.encargado}</span>
+          ${f.creado?`<span>📅 ${_fechaCorta(f.creado)}</span>`:''}
           ${(f.costo>0 && f.trab>0)?`<span>💵 promedio <b>${money(Math.round(f.costo/1.5/f.trab))}</b>/persona</span>`:''}
           ${pctLine}
         </div>
@@ -1194,6 +1197,8 @@ function drawFolios(){
     const enc=partes[0].encargado;
     const labores=[...new Set(partes.map(p=>p.labor))];
     const cuarteles=[...new Set(partes.map(p=>p.cuartel))];
+    const fechas=[...new Set(partes.map(p=>p.creado).filter(Boolean))].sort();
+    const fechaTxt = fechas.length ? (fechas.length===1?_fechaCorta(fechas[0]):`${_fechaCorta(fechas[0])}–${_fechaCorta(fechas[fechas.length-1])}`) : "";
     return `<div class="fgrupo">
       <div class="f ${isPr?'prelim':'aprob'} fgcab" data-folio="${folio}" style="cursor:pointer">
         <div class="id">
@@ -1205,6 +1210,7 @@ function drawFolios(){
           <div class="loc"><b>${folio}</b> · folio con varias labores</div>
           <div class="meta">
             <span>📋 ${enc}</span>
+            ${fechaTxt?`<span>📅 ${fechaTxt}</span>`:''}
             <span>${labores.length} labor(es): ${labores.slice(0,3).join(", ")}${labores.length>3?'…':''}</span>
             <span>${cuarteles.length} cuartel(es)</span>
             <span style="color:var(--verde)">▶ toca para ver el detalle</span>
@@ -1223,8 +1229,11 @@ function drawFolios(){
   };
 
   // construir el HTML: primero sueltos, luego grupos -A
+  // (un folio -A con una sola parte se muestra como tarjeta normal, no como grupo)
   let html = sueltos.map(tarjeta).join("");
-  html += Object.entries(grupos).map(([folio,partes])=>tarjetaGrupo(folio,partes)).join("");
+  html += Object.entries(grupos).map(([folio,partes])=>
+    partes.length>1 ? tarjetaGrupo(folio,partes) : tarjeta(partes[0])
+  ).join("");
   cont.innerHTML=html;
 
   // expandir/colapsar grupos -A
@@ -1250,6 +1259,14 @@ function _fechaISO(f){
   const d=new Date(f);
   if(isNaN(d)) return "";
   return d.toISOString().slice(0,10);
+}
+// fecha corta legible: "15-jul" o "15-jul-26"
+function _fechaCorta(f){
+  if(!f) return "";
+  const d=new Date(f);
+  if(isNaN(d)) return String(f);
+  const mes=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][d.getMonth()];
+  return String(d.getDate()).padStart(2,'0')+"-"+mes;
 }
 
 async function anularFolio(folio){
