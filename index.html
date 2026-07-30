@@ -1302,8 +1302,10 @@ function _procLil(rows){const g={};rows.forEach(r=>{const folio=_S(r['FOLIO']);i
   if(trato || npl>1){o.trato=o.trato||trato;o.plantas+=npl;}
   // Costo: si el contratista es Agrícola San José y es TRATO, se recalcula con VALOR UNITARIO × 1,63 × plantas
   // (el TOTAL A PAGAR de Liliana trae 1,5, que para San José es incorrecto). Otros contratistas: TOTAL A PAGAR tal cual.
-  const contr=_up(r['CONTRATISTA']);
-  const esSanJose = contr.includes("SAN JOSE") || contr.includes("SAN JOSÉ");
+  // detección robusta: quita tildes y pasa a mayúsculas, así "AGRÍCOLA SAN JOSÉ",
+  // "AGRICOLA SAN JOSE" o cualquier variante de tilde se detectan igual
+  const contrNorm=_S(r['CONTRATISTA']).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const esSanJose = contrNorm.includes("SAN JOSE");
   if(esSanJose && trato){
     o.costo += _N(r['VALOR UNITARIO']) * 1.63 * npl;
   } else {
