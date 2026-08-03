@@ -932,15 +932,19 @@ function drawExcedidos(){
     if(precio!=null && plantas){ const presup=precio*plantas;
       const pc=presup>0?Math.round(d.real/presup*100):0;
       if(pc>100){
-        // precio unitario pagado por planta (en trato) vs el base presupuestado
+        // El precio del presupuesto YA incluye el factor 1,5. El gasto real de San José
+        // trae 1,63. Entonces el factor relativo (pagado/presupuestado) es:
+        //   ~1,087 (=1,63/1,5) → lo hizo San José
+        //   ~1,00           → externo al precio normal (exceso por plantas u otra razón)
+        //   > ~1,12         → precio unitario pagado claramente mayor al presupuestado
         const pagadoPP = d.plTrato>0 ? (d.costoTrato/d.plTrato) : null;
-        const factorPagado = pagadoPP!=null ? pagadoPP/precio : null;   // ~1,5 externo · ~1,63 San José
+        const factorRel = pagadoPP!=null ? pagadoPP/precio : null;   // pagado / (base×1,5)
         let motivo;
-        if(factorPagado==null) motivo="Otro";
-        else if(factorPagado > 1.70) motivo="Precio unitario mayor";        // pagó más que 1,63 → precio alto
-        else if(factorPagado >= 1.58) motivo="San José (×1,63)";            // ~1,63 → lo hizo San José
-        else motivo="Otro";                                                 // ~1,5 → externo, exceso por otra razón
-        excPlata.push({tipo:'plata',cuartel:d.cuartel,labor:d.labor,presup,real:d.real,pc,motivo,factorPagado}); }
+        if(factorRel==null) motivo="Otro";
+        else if(factorRel > 1.12) motivo="Precio unitario mayor";     // pagó más que San José → precio alto
+        else if(factorRel >= 1.04) motivo="San José (×1,63)";         // ~1,087 → San José
+        else motivo="Otro";                                            // ~1,0 → precio normal, exceso por otra causa
+        excPlata.push({tipo:'plata',cuartel:d.cuartel,labor:d.labor,presup,real:d.real,pc,motivo,factorRel}); }
     }
   });
   excPlata.sort((a,b)=>b.pc-a.pc);
