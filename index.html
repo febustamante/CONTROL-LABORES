@@ -317,6 +317,7 @@ footer b{color:var(--burdeo)}
     <input class="search" id="buscar" placeholder="Buscar folio, cuartel, labor o encargado…">
     <input type="date" id="fFecha" class="search" style="max-width:170px" title="Filtrar por fecha del folio">
     <button id="limpiarFecha" style="border:1px solid var(--linea);background:#fff;color:var(--gris);font-family:inherit;font-size:12px;padding:8px 12px;border-radius:9px;cursor:pointer">Todas las fechas</button>
+    <button id="exportarPrelim" style="border:1px solid var(--verde);background:#fff;color:var(--verde);font-family:inherit;font-size:12px;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer">📥 Exportar preliminares</button>
     <span class="count" id="conteo"></span>
   </div>
   <div class="folios" id="folios"></div>
@@ -1278,6 +1279,32 @@ document.getElementById("filtro").addEventListener("click",e=>{
 document.getElementById("buscar").addEventListener("input",e=>{busqueda=e.target.value;drawFolios();});
 document.getElementById("fFecha").addEventListener("change",e=>{fechaFiltro=e.target.value;drawFolios();});
 document.getElementById("limpiarFecha").addEventListener("click",()=>{fechaFiltro="";document.getElementById("fFecha").value="";drawFolios();});
+
+// Exportar los preliminares actuales (respetando el rol del usuario) a un Excel descargable
+document.getElementById("exportarPrelim").addEventListener("click",()=>{
+  const prelim = FOLIOS.filter(f=>f.estado==="PRELIMINAR")
+    .sort((a,b)=> b.dias-a.dias);   // los más antiguos primero, para dar prioridad
+  if(!prelim.length){ alert("No hay folios preliminares para exportar."); return; }
+  const filas = prelim.map(f=>({
+    "Folio": f.folio,
+    "Fecha": f.creado || "",
+    "Días esperando": f.dias,
+    "Campo": f.grupo,
+    "Cuartel": f.cuartel,
+    "Labor": f.labor,
+    "Encargado SAPA": f.encargado,
+    "Tipo": f.tipo,
+    "Trabajadores": f.trab,
+    "Plantas": f.plantas,
+    "Costo estimado": f.costo
+  }));
+  const ws = XLSX.utils.json_to_sheet(filas);
+  ws['!cols'] = [{wch:10},{wch:12},{wch:14},{wch:14},{wch:10},{wch:22},{wch:26},{wch:9},{wch:13},{wch:10},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Preliminares");
+  const hoy = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `preliminares_${hoy}.xlsx`);
+});
 
 // Los 5 filtros en cascada: al cambiar uno, se repuebla todo y se redibuja
 function onFiltro(){ render(); }
