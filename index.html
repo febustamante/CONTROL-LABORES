@@ -280,6 +280,7 @@ footer b{color:var(--burdeo)}
       <a data-vista="labores">◷ Labores</a>
       <a data-vista="cuarteles">▤ Cuarteles y Folios</a>
       <a data-vista="excedidos">⚠ Excedidos <span class="navBadge" id="navBadgeExc"></span></a>
+      <a data-vista="cambios">⇄ Cambios tras aprobar <span class="navBadge" id="navBadgeCambios"></span></a>
     </nav>
     <div class="sbFoot" id="sbFoot"></div>
   </aside>
@@ -342,6 +343,13 @@ footer b{color:var(--burdeo)}
   <h2>Excedidos</h2>
   <p class="hint">Todos los excedidos de tu operación (respeta tu rol, ignora los filtros).</p>
   <div id="alertaExcedidos"></div>
+  </section>
+
+  <!-- VISTA: CAMBIOS TRAS APROBAR -->
+  <section class="vista" data-vista="cambios" style="display:none">
+  <h2>Cambios tras aprobar</h2>
+  <p class="hint">Folios donde algo cambió entre lo informado como preliminar y lo aprobado por Liliana. Útil para saber qué hay que actualizar en el ERP.</p>
+  <div id="cambiosPostAprobacion"></div>
   </section>
 </div>
 
@@ -459,7 +467,19 @@ async function cargarDatos(){
   FOLIOS_ALL.forEach(f=>{ if(f.cuartel && f.grupo) GRUPO_CUARTEL_FOLIO[f.cuartel.toUpperCase()]=f.grupo; });
   // cargar excedidos ya revisados/justificados
   await cargarRevisados();
+  await cargarCambios();
   return true;
+}
+
+// Cambios detectados entre preliminar y aprobado (solo Agrícola San José)
+let CAMBIOS_POST = [];
+async function cargarCambios(){
+  CAMBIOS_POST = [];
+  try{
+    const {data,error}=await sb.from("cambios_post_aprobacion").select("*").order("fecha_deteccion",{ascending:false});
+    if(error){ console.warn("cambios_post_aprobacion:",error.message); return; }
+    CAMBIOS_POST = data||[];
+  }catch(e){ console.warn("No se pudo cargar cambios_post_aprobacion",e); }
 }
 
 // Excedidos que el admin marcó como revisados (con observación) → salen de las alertas
@@ -824,6 +844,7 @@ function render(){
 
   poblarFiltros();
   drawExcedidos();
+  drawCambios();
   drawResumenNoPresup();
   drawCuarteles();
   drawFolios();
@@ -1075,6 +1096,81 @@ async function reactivarExcedido(labor,cuartel){
     drawExcedidos();
     render();
   }catch(e){ alert("No se pudo reactivar: "+(e.message||e)); }
+}
+
+// ===== CAMBIOS TRAS APROBAR (solo Agrícola San José) =====
+function drawCambios(){
+  const cont=document.getElementById("cambiosPostAprobacion");
+  if(!cont) return;
+  const pendientes=CAMBIOS_POST.filter(c=>!c.informado);
+  const informados=CAMBIOS_POST.filter(c=>c.informado);
+  const badge=document.getElementById("navBadgeCambios");
+  if(badge) badge.textContent = pendientes.length || "";
+
+  const admin=!!window.ES_ADMIN;
+  const chip=(t)=>`<span style="background:var(--naranja-bg);color:#C8621F;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:4px;display:inline-block;margin-bottom:3px">${t}</span>`;
+  const flecha=(a,b)=>`<span style="color:var(--gris)">${a||'—'}</span> <span style="color:var(--verde)">→</span> <b>${b||'—'}</b>`;
+
+  const tarjeta=(c)=>{
+    const tipos=(c.tipos_cambio||'').split(',').map(t=>t.trim()).filter(Boolean);
+    const det=(c.detalle_cambios||'').split('|').map(d=>d.trim()).filter(Boolean);
+    return `<div style="background:#fff;border:1px solid var(--linea);border-left:4px solid var(--naranja);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+        <div>
+          <span style="font-family:'Fraunces',serif;font-weight:900;font-size:19px">${c.folio}</span>
+          <span style="color:var(--gris);font-size:12px;margin-left:8px">${c.cuartel_despues||''} · ${c.labor_despues||''}</span>
+        </div>
+        <div>${tipos.map(chip).join('')}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px;font-size:12px">
+        ${c.cuartel_antes!==c.cuartel_despues?`<div>Cuartel: ${flecha(c.cuartel_antes,c.cuartel_despues)}</div>`:''}
+        ${c.labor_antes!==c.labor_despues?`<div>Labor: ${flecha(c.labor_antes,c.labor_despues)}</div>`:''}
+        ${Number(c.plantas_antes)!==Number(c.plantas_despues)?`<div>Plantas: ${flecha(num(c.plantas_antes||0),num(c.plantas_despues||0))}</div>`:''}
+        ${Number(c.trabajadores_antes)!==Number(c.trabajadores_despues)?`<div>Trabajadores: ${flecha(c.trabajadores_antes,c.trabajadores_despues)}</div>`:''}
+        ${Number(c.costo_antes)!==Number(c.costo_despues)?`<div>Costo: ${flecha(money(c.costo_antes||0),money(c.costo_despues||0))}</div>`:''}
+      </div>
+      ${det.length?`<details style="margin-top:9px">
+        <summary style="cursor:pointer;font-size:11.5px;color:var(--verde);font-weight:600">Ver detalle de cambios (${det.length})</summary>
+        <ul style="margin:7px 0 0 18px;font-size:11.5px;color:var(--gris);line-height:1.7">
+          ${det.map(d=>`<li>${d}</li>`).join('')}
+        </ul></details>`:''}
+      ${admin&&!c.informado?`<div style="margin-top:10px"><button class="btnInformado" data-folio="${encodeURIComponent(c.folio)}" style="border:1px solid var(--verde);background:#fff;color:var(--verde);font-family:inherit;font-size:11.5px;font-weight:600;padding:4px 12px;border-radius:8px;cursor:pointer">✓ Marcar como informado al ERP</button></div>`:''}
+      ${c.informado?`<div style="margin-top:8px;font-size:11px;color:var(--verde);font-weight:600">✓ Informado al ERP${c.fecha_informado?` · ${_fechaCorta(c.fecha_informado)}`:''}</div>`:''}
+    </div>`;
+  };
+
+  let html='';
+  if(!pendientes.length){
+    html=`<div style="background:var(--verde-bg);border:1px solid var(--verde);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--verde);font-weight:600">✓ Sin cambios pendientes de informar.${informados.length?` (${informados.length} ya informados más abajo)`:''}</div>`;
+  } else {
+    html=`<div style="background:var(--naranja-bg);border:1px solid var(--naranja);border-radius:12px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#C8621F;font-weight:700">
+      ⚠ ${pendientes.length} folio(s) cambiaron al aprobarse — revisar y actualizar en el ERP
+    </div>`+pendientes.map(tarjeta).join('');
+  }
+  if(informados.length){
+    html+=`<details style="margin-top:14px"><summary style="cursor:pointer;font-family:'Fraunces',serif;font-size:15px;color:var(--tinta);font-weight:700">Ya informados (${informados.length})</summary>
+      <div style="margin-top:10px">${informados.map(tarjeta).join('')}</div></details>`;
+  }
+  cont.innerHTML=html;
+
+  if(admin){
+    cont.querySelectorAll(".btnInformado").forEach(b=>b.addEventListener("click",()=>{
+      marcarInformado(decodeURIComponent(b.dataset.folio));
+    }));
+  }
+}
+
+async function marcarInformado(folio){
+  if(!window.ES_ADMIN) return;
+  try{
+    const ahora=new Date().toISOString();
+    const {error}=await sb.from("cambios_post_aprobacion")
+      .update({informado:true,informado_por:"Admin",fecha_informado:ahora}).eq("folio",folio);
+    if(error) throw error;
+    const c=CAMBIOS_POST.find(x=>x.folio===folio);
+    if(c){ c.informado=true; c.fecha_informado=ahora; }
+    drawCambios();
+  }catch(e){ alert("No se pudo marcar: "+(e.message||e)); }
 }
 
 // Puebla los 5 selects: cada uno muestra solo lo que dejan los filtros anteriores
@@ -1365,6 +1461,124 @@ function _bind(dropId,inputId,sId,cb){
 _bind('dropLil','fLil','sLil',wb=>wbLil=wb);
 _bind('dropRep','fRep','sRep',wb=>wbRep=wb);
 
+// Temporada: mayo a abril del año siguiente. Ej: fecha en jun-2026 → "2026-2027"
+function _temporada(fecha){
+  const d=new Date(fecha);
+  if(isNaN(d)) return null;
+  const y=d.getFullYear(), m=d.getMonth()+1; // 1-12
+  return m>=5 ? `${y}-${y+1}` : `${y-1}-${y}`;
+}
+
+// Extrae el detalle línea por línea (hasta "Valor Unitario") para folios_detalle.
+// Sirve para AMBOS archivos: Liliana (ESTADO al inicio) y Kizeo (Estado Folio al final).
+function _detalleLil(rows){
+  return rows.filter(r=>_S(r['FOLIO'])).map(r=>({
+    origen:'LILIANA', folio:_S(r['FOLIO']), estado:_up(r['ESTADO']),
+    encargado_sapa:_S(r['ENCARGADO SAPA']), campo:_S(r['CAMPO']), grupo_cc:_S(r['GRUPO CENTRO COSTO']),
+    fecha:_fmt(r['FECHA']), cod_cc:_S(r['CÓDIGO CENTRO COSTO']), cuartel:_S(r['CENTRO COSTO']),
+    variedad:_S(r['VARIEDAD']), cod_labor:_S(r['CÓDIGO LABOR']), labor:_S(r['LABOR']),
+    contratista:_S(r['CONTRATISTA']), rut_trabajador:_S(r['PERSONAL#RUT EMPLEADO']),
+    nombre_trabajador:_S(r['NOMBRE T']), jornada:_S(r['JORNADA']), tipo:_up(r['TRATO/DIA']),
+    unidades:_N(r['N PLANTAS']), valor_unitario:_N(r['VALOR UNITARIO']),
+    temporada:_temporada(r['FECHA'])
+  }));
+}
+function _detalleRep(rows){
+  return rows.filter(r=>_S(r['Número de registro'])).map(r=>({
+    origen:'KIZEO', folio:_S(r['Número de registro']), estado:_up(r['Estado Folio']),
+    encargado_sapa:_S(r['Encargado SAPA']), campo:_S(r['Grupo Labor']), grupo_cc:_S(r['Grupo Centro Costo']),
+    fecha:_fmt(r['Fecha de Creación']), cod_cc:_S(r['Código Centro Costo']), cuartel:_S(r['Centro Costo']),
+    variedad:_S(r['Variedad']), cod_labor:_S(r['Código Labor']), labor:_S(r['Labor']),
+    contratista:_S(r['Contratista']), rut_trabajador:_S(r['Personal#Rut Empleado']),
+    nombre_trabajador:_S(r['Personal#Empleado']), jornada:_S(r['Personal#Jornada']), tipo:_up(r['Personal#Tipo Trabajo']),
+    unidades:_N(r['Personal#UnidadesTrabajadasAux']), valor_unitario:_N(r['Valor Unitario Labor']),
+    temporada:_temporada(r['Fecha de Creación'])
+  }));
+}
+
+// Compara el detalle PRELIMINAR viejo (Kizeo) contra el APROBADO nuevo (Liliana).
+// SOLO folios de Agrícola San José. Detecta CUALQUIER cambio: campos modificados,
+// trabajadores agregados y trabajadores quitados.
+function _esSanJose(txt){
+  return _S(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").includes("SAN JOSE");
+}
+function _detectarCambios(prelimViejo, aprobNuevo){
+  // campos que se comparan línea por línea (todos los relevantes hasta valor unitario)
+  const CAMPOS=[
+    ['cuartel','Cuartel'], ['cod_cc','Código C.Costo'], ['labor','Labor'], ['cod_labor','Código Labor'],
+    ['variedad','Variedad'], ['contratista','Contratista'], ['encargado_sapa','Encargado SAPA'],
+    ['campo','Campo'], ['grupo_cc','Grupo C.Costo'], ['jornada','Jornada'], ['tipo','Trato/Día'],
+    ['unidades','Plantas/Unidades'], ['valor_unitario','Valor unitario'], ['fecha','Fecha'],
+    ['nombre_trabajador','Nombre trabajador']
+  ];
+  const norm=(v)=>{
+    if(v===null||v===undefined) return '';
+    if(typeof v==='number') return String(v);
+    const n=Number(v); if(!isNaN(n)&&String(v).trim()!=='') return String(n);
+    return String(v).trim().toUpperCase();
+  };
+  // indexar por folio -> rut -> línea (solo San José)
+  const index=(lineas)=>{
+    const g={};
+    lineas.filter(l=>_esSanJose(l.contratista)).forEach(l=>{
+      const f=l.folio; if(!g[f]) g[f]={};
+      const rut=_S(l.rut_trabajador)||'(sin rut)';
+      g[f][rut]=l;   // si hubiera repetidos, queda el último
+    });
+    return g;
+  };
+  const antes=index(prelimViejo), despues=index(aprobNuevo);
+  const cambios=[];
+  Object.keys(despues).forEach(folio=>{
+    const a=antes[folio], d=despues[folio];
+    if(!a) return;   // no había preliminar guardado de este folio: nada que comparar
+    const detalles=[], tipos=new Set();
+    // trabajadores QUITADOS (estaban en preliminar, ya no en aprobado)
+    Object.keys(a).forEach(rut=>{
+      if(!d[rut]){
+        tipos.add('Trabajador quitado');
+        detalles.push(`QUITADO: ${a[rut].nombre_trabajador||''} (${rut})`);
+      }
+    });
+    // trabajadores AGREGADOS y MODIFICADOS
+    Object.keys(d).forEach(rut=>{
+      if(!a[rut]){
+        tipos.add('Trabajador agregado');
+        detalles.push(`AGREGADO: ${d[rut].nombre_trabajador||''} (${rut})`);
+      } else {
+        CAMPOS.forEach(([campo,etiqueta])=>{
+          const va=norm(a[rut][campo]), vd=norm(d[rut][campo]);
+          if(va!==vd){
+            tipos.add(etiqueta);
+            const quien = d[rut].nombre_trabajador ? ` [${d[rut].nombre_trabajador}]` : ` [${rut}]`;
+            detalles.push(`${etiqueta}${quien}: "${va}" → "${vd}"`);
+          }
+        });
+      }
+    });
+    if(detalles.length){
+      const lineasD=Object.values(d);
+      cambios.push({
+        folio,
+        tipos_cambio:[...tipos].join(', '),
+        detalle_cambios:detalles.join(' | '),
+        cuartel_antes:[...new Set(Object.values(a).map(l=>l.cuartel))].join(','),
+        cuartel_despues:[...new Set(lineasD.map(l=>l.cuartel))].join(','),
+        labor_antes:[...new Set(Object.values(a).map(l=>l.labor))].join(','),
+        labor_despues:[...new Set(lineasD.map(l=>l.labor))].join(','),
+        plantas_antes:Math.round(Object.values(a).reduce((s,l)=>s+(Number(l.unidades)||0),0)),
+        plantas_despues:Math.round(lineasD.reduce((s,l)=>s+(Number(l.unidades)||0),0)),
+        trabajadores_antes:Object.keys(a).length,
+        trabajadores_despues:Object.keys(d).length,
+        costo_antes:Math.round(Object.values(a).reduce((s,l)=>s+(Number(l.unidades)||0)*(Number(l.valor_unitario)||0),0)),
+        costo_despues:Math.round(lineasD.reduce((s,l)=>s+(Number(l.unidades)||0)*(Number(l.valor_unitario)||0),0)),
+        informado:false, fecha_deteccion:new Date().toISOString()
+      });
+    }
+  });
+  return cambios;
+}
+
 function _procLil(rows){const g={};rows.forEach(r=>{const folio=_S(r['FOLIO']);if(!folio)return;
   const trato=_up(r['TRATO/DIA'])==='TRATO';
   const cuartel=_S(r['CENTRO COSTO']), labor=_S(r['LABOR']);
@@ -1479,6 +1693,9 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   const prelim=rep.filter(f=>f.estado==='PRELIMINAR'&&!foliosLil.has(f.folio_pk));
   const aprobRep=rep.filter(f=>f.estado==='APROBADO'&&!foliosLil.has(f.folio_pk));
   paraCargar={aprobados:[...lil,...aprobRep],preliminares:prelim,anular:[]};
+  // detalle línea por línea (para folios_detalle: comparar cambios tras aprobar)
+  paraCargar.detalleLil = rowsLil ? _detalleLil(rowsLil) : [];
+  paraCargar.detalleRep = rowsRep ? _detalleRep(rowsRep) : [];
   const pAp=paraCargar.aprobados.reduce((s,f)=>s+f.plantas,0);
   const pPr=prelim.reduce((s,f)=>s+f.plantas,0);
 
@@ -1564,6 +1781,50 @@ async function _cargar(){
       }
       add('verde',`✓ ${paraCargar.anular.length} partes anuladas (ya no estaban en el Excel).`);
     }
+
+    // ===== CAMBIOS TRAS APROBAR: comparar lo que había preliminar (Kizeo, guardado antes)
+    // contra lo aprobado ahora (Liliana), agrupado por número de folio =====
+    if(paraCargar.detalleLil && paraCargar.detalleLil.length){
+      const foliosAprobadosAhora=[...new Set(paraCargar.detalleLil.map(d=>d.folio))];
+      // traer el detalle preliminar VIEJO (de Kizeo) que quedó guardado de folios que ahora se aprobaron
+      let prelimViejo=[];
+      for(let i=0;i<foliosAprobadosAhora.length;i+=200){
+        const lote=foliosAprobadosAhora.slice(i,i+200);
+        const {data,error:e6}=await sb.from('folios_detalle').select('*').eq('origen','KIZEO').in('folio',lote);
+        if(e6) throw e6;
+        prelimViejo=prelimViejo.concat(data||[]);
+      }
+      if(prelimViejo.length){
+        const cambios=_detectarCambios(prelimViejo, paraCargar.detalleLil);
+        if(cambios.length){
+          for(let i=0;i<cambios.length;i+=200){
+            const {error:e7}=await sb.from('cambios_post_aprobacion').upsert(cambios.slice(i,i+200),{onConflict:'folio'});
+            if(e7) throw e7;
+          }
+          add('naranja',`⚠ ${cambios.length} folio(s) cambiaron algo al aprobarse (revisar en "Cambios tras aprobar").`);
+        }
+      }
+    }
+
+    // ===== Guardar el detalle completo (folios_detalle), para poder comparar en la próxima carga =====
+    const detalleTotal=[...(paraCargar.detalleLil||[]),...(paraCargar.detalleRep||[])];
+    if(detalleTotal.length){
+      for(let i=0;i<detalleTotal.length;i+=500){
+        const {error:e8}=await sb.from('folios_detalle').insert(detalleTotal.slice(i,i+500));
+        if(e8) throw e8;
+      }
+      add('verde',`✓ ${detalleTotal.length} líneas de detalle guardadas.`);
+      // limpiar: dejar solo las últimas 2 temporadas
+      const temporadas=[...new Set(detalleTotal.map(d=>d.temporada).filter(Boolean))].sort();
+      if(temporadas.length){
+        const actual=temporadas[temporadas.length-1];
+        const [y1]=actual.split('-').map(Number);
+        const temporadaLimite=`${y1-2}-${y1-1}`; // todo lo anterior a "las últimas 2" se borra
+        const {error:e9}=await sb.from('folios_detalle').delete().lt('temporada',temporadaLimite);
+        if(e9) console.warn('Limpieza de temporadas viejas:',e9.message);
+      }
+    }
+
     add('verde',`<b>Carga completa.</b> Actualizando vista...`);
     setTimeout(async()=>{ await cargarDatos();
       FOLIOS = usuarioActual.grupos ? FOLIOS_ALL.filter(f=>usuarioActual.grupos.includes((f.grupo||"").toUpperCase())) : FOLIOS_ALL;
