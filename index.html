@@ -1797,12 +1797,26 @@ async function _cargar(){
       }
       if(prelimViejo.length){
         const cambios=_detectarCambios(prelimViejo, paraCargar.detalleLil);
+        const conCambios=new Set(cambios.map(c=>c.folio));
         if(cambios.length){
           for(let i=0;i<cambios.length;i+=200){
             const {error:e7}=await sb.from('cambios_post_aprobacion').upsert(cambios.slice(i,i+200),{onConflict:'folio'});
             if(e7) throw e7;
           }
           add('naranja',`⚠ ${cambios.length} folio(s) cambiaron algo al aprobarse (revisar en "Cambios tras aprobar").`);
+        }
+        // LIMPIEZA: los folios que se revisaron y YA NO tienen cambios reales
+        // (ej. su único cambio era la fecha, que ya no se compara) se eliminan del listado,
+        // salvo que estén marcados como informados (esos se conservan como historial).
+        const revisados=[...new Set(prelimViejo.map(d=>d.folio))];
+        const sinCambios=revisados.filter(f=>!conCambios.has(f));
+        if(sinCambios.length){
+          for(let i=0;i<sinCambios.length;i+=200){
+            const lote=sinCambios.slice(i,i+200);
+            const {error:e10}=await sb.from('cambios_post_aprobacion')
+              .delete().in('folio',lote).eq('informado',false);
+            if(e10) console.warn('Limpieza de cambios sin diferencias:',e10.message);
+          }
         }
       }
     }
