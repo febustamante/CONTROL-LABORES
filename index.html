@@ -1508,8 +1508,9 @@ function _detectarCambios(prelimViejo, aprobNuevo){
     ['cuartel','Cuartel'], ['cod_cc','Código C.Costo'], ['labor','Labor'], ['cod_labor','Código Labor'],
     ['variedad','Variedad'], ['contratista','Contratista'], ['encargado_sapa','Encargado SAPA'],
     ['campo','Campo'], ['grupo_cc','Grupo C.Costo'], ['jornada','Jornada'], ['tipo','Trato/Día'],
-    ['unidades','Plantas/Unidades'], ['valor_unitario','Valor unitario'], ['fecha','Fecha'],
+    ['unidades','Plantas/Unidades'], ['valor_unitario','Valor unitario'],
     ['nombre_trabajador','Nombre trabajador']
+    // NOTA: la fecha NO se compara a propósito (cambia siempre al aprobar y no aporta)
   ];
   const norm=(v)=>{
     if(v===null||v===undefined) return '';
