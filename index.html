@@ -1840,14 +1840,29 @@ async function _cargar(){
       }
     }
 
-    // ===== Guardar el detalle completo (folios_detalle), para poder comparar en la próxima carga =====
+    // ===== Guardar el detalle completo (folios_detalle) =====
+    // IMPORTANTE: se REEMPLAZA el detalle de los folios que vienen en esta carga
+    // (primero se borra el previo, luego se inserta). Si solo se insertara, la tabla
+    // acumularía una copia por cada carga y crecería sin control.
     const detalleTotal=[...(paraCargar.detalleLil||[]),...(paraCargar.detalleRep||[])];
     if(detalleTotal.length){
+      // 1) borrar el detalle previo de esos folios (por origen, para no mezclar Liliana/Kizeo)
+      const borrarPorOrigen=async (origen,lineas)=>{
+        const folios=[...new Set(lineas.map(l=>l.folio))];
+        for(let i=0;i<folios.length;i+=200){
+          const lote=folios.slice(i,i+200);
+          const {error}=await sb.from('folios_detalle').delete().eq('origen',origen).in('folio',lote);
+          if(error) throw error;
+        }
+      };
+      if(paraCargar.detalleLil && paraCargar.detalleLil.length) await borrarPorOrigen('LILIANA',paraCargar.detalleLil);
+      if(paraCargar.detalleRep && paraCargar.detalleRep.length) await borrarPorOrigen('KIZEO',paraCargar.detalleRep);
+      // 2) insertar el detalle nuevo
       for(let i=0;i<detalleTotal.length;i+=500){
         const {error:e8}=await sb.from('folios_detalle').insert(detalleTotal.slice(i,i+500));
         if(e8) throw e8;
       }
-      add('verde',`✓ ${detalleTotal.length} líneas de detalle guardadas.`);
+      add('verde',`✓ ${detalleTotal.length} líneas de detalle guardadas (reemplazan las previas).`);
       // limpiar: dejar solo las últimas 2 temporadas
       const temporadas=[...new Set(detalleTotal.map(d=>d.temporada).filter(Boolean))].sort();
       if(temporadas.length){
