@@ -1704,8 +1704,18 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   // detectar los APROBADOS que están en la base pero YA NO en el Excel → se anularán.
   let aAnular=[];
   if(rowsLil){
-    // no anular folios "-A" (multi-labor que nunca se anulan), y comparar por folio_pk
-    aAnular = FOLIOS_ALL.filter(f=>f.estado==='APROBADO' && !/-A$/i.test(f.folio) && !foliosLil.has(f.folio_pk));
+    // números de folio que SÍ vienen en esta carga de Liliana
+    const numerosLil=new Set([...foliosLil].map(pk=>pk.split('|')[0]));
+    aAnular = FOLIOS_ALL.filter(f=>{
+      if(f.estado!=='APROBADO') return false;
+      if(foliosLil.has(f.folio_pk)) return false;   // sigue estando igual: no tocar
+      // Folios normales: se anulan si ya no vienen (comportamiento de siempre).
+      // Folios "-A": se anulan SOLO si su número de folio SÍ viene en esta carga
+      // (o sea, Liliana lo está cargando y esa parte ya no existe → fue corregida).
+      // Si el folio -A no viene para nada en el Excel, no se toca: puede ser de otro período.
+      if(/-A$/i.test(f.folio)) return numerosLil.has(f.folio);
+      return true;
+    });
     paraCargar.anular = aAnular.map(f=>f.folio_pk);
   }
 
@@ -1714,10 +1724,19 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   // aviso de anulación (red de seguridad): mostrar qué aprobados se van a anular
   let anularHTML="";
   if(aAnular.length){
-    const lista=aAnular.slice(0,50).map(f=>`<li>${f.folio} · ${f.cuartel} · ${f.labor}</li>`).join("");
-    anularHTML=`<div style="background:var(--naranja-bg);border:1px solid var(--naranja);border-radius:10px;padding:12px;margin-top:10px;font-size:12.5px">
-      <b style="color:var(--naranja)">⚠ ${aAnular.length} aprobado(s) están en la base pero YA NO en el Excel.</b><br>
-      Al confirmar, se marcarán como <b>ANULADO</b> (salen de los conteos, quedan registrados).
+    const esA=f=>/-A$/i.test(f.folio);
+    const anulA=aAnular.filter(esA), anulNormal=aAnular.filter(f=>!esA(f));
+    const lista=aAnular.slice(0,50).map(f=>`<li>${f.folio} · ${f.cuartel} · ${f.labor}${esA(f)?' <span style="color:var(--verde);font-size:11px">(parte corregida en el Excel)</span>':''}</li>`).join("");
+    // TOPE DE SEGURIDAD: si se van a anular muchas partes de folios -A, avisar fuerte
+    const sospechoso = anulA.length>50;
+    anularHTML=`<div style="background:${sospechoso?'var(--rojo-bg)':'var(--naranja-bg)'};border:1px solid ${sospechoso?'var(--rojo)':'var(--naranja)'};border-radius:10px;padding:12px;margin-top:10px;font-size:12.5px">
+      <b style="color:${sospechoso?'var(--rojo)':'var(--naranja)'}">⚠ ${aAnular.length} aprobado(s) están en la base pero YA NO en el Excel.</b><br>
+      ${anulA.length?`<span style="color:var(--gris)">${anulNormal.length} folio(s) normales · ${anulA.length} parte(s) de folios -A corregidas.</span><br>`:''}
+      Al confirmar, se marcarán como <b>ANULADO</b> (salen de los conteos, quedan registrados y son reversibles).
+      ${sospechoso?`<div style="background:#fff;border:1px solid var(--rojo);border-radius:8px;padding:9px;margin:9px 0;color:var(--rojo);font-weight:700">
+        🔴 ATENCIÓN: son muchas partes de folios -A (${anulA.length}).<br>
+        <span style="font-weight:400">Esto es normal si Liliana corrigió/normalizó muchos datos. Pero si cargaste un Excel <b>parcial o filtrado</b>, CANCELA: se anularían partes legítimas. Verifica que el Excel sea el archivo completo antes de confirmar.</span>
+      </div>`:''}
       <ul style="margin:8px 0 0 18px;max-height:150px;overflow:auto">${lista}</ul>
       ${aAnular.length>50?`<div style="color:var(--gris);margin-top:4px">…y ${aAnular.length-50} más</div>`:''}
     </div>`;
