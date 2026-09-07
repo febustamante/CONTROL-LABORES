@@ -218,22 +218,41 @@ footer b{color:var(--burdeo)}
   #otDocumento{display:block !important;position:absolute;left:0;top:0;width:100%}
   @page{size:letter portrait;margin:18mm}
 }
-.otDoc{font-family:Arial,Helvetica,sans-serif;color:#000;font-size:13px;border:2px solid #000;padding:26px 30px}
-.otDoc .otTitulo{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px}
-.otDoc .otT1{font-size:15px;font-weight:700;letter-spacing:.06em}
-.otDoc .otNum{text-align:center;font-size:12px}
-.otDoc .otNum b{display:block;font-size:20px;margin-top:3px}
-.otDoc .otCampo{display:flex;margin-bottom:5px}
-.otDoc .otCampo .k{width:130px;font-weight:700;font-size:12.5px}
-.otDoc table.otCuart{border-collapse:collapse;margin:2px 0 0 130px}
-.otDoc table.otCuart td{border:1px solid #000;padding:3px 16px;text-align:center;font-size:12.5px;min-width:62px}
-.otDoc .otSec{margin-top:26px;font-weight:700;font-size:12.5px;letter-spacing:.03em}
-.otDoc .otTot{margin-top:14px}
-.otDoc .otTot .otCampo .k{width:190px}
-.otDoc .otFirmas{display:flex;justify-content:space-between;margin-top:80px;gap:30px}
-.otDoc .otFirma{flex:1;text-align:center;border-top:1px solid #000;padding-top:5px;font-size:11px}
-.otDoc .otFirmaCentro{margin-top:46px;text-align:center}
-.otDoc .otFirmaCentro .l{border-top:1px solid #000;display:inline-block;padding-top:5px;min-width:270px;font-size:11px}
+.otDoc{font-family:"Helvetica Neue",Arial,sans-serif;color:#111;font-size:14px;
+  min-height:247mm;display:flex;flex-direction:column;padding:0}
+.otDoc .otHead{display:flex;justify-content:space-between;align-items:center;
+  border-bottom:3px solid #0F5132;padding-bottom:16px;margin-bottom:4px}
+.otDoc .otBrand{display:flex;align-items:center;gap:16px}
+.otDoc .otBrand img{width:78px;height:78px;object-fit:contain;mix-blend-mode:multiply}
+.otDoc .otT1{font-size:24px;font-weight:800;letter-spacing:.04em;color:#0F5132;line-height:1.1}
+.otDoc .otT2{font-size:12px;letter-spacing:.16em;color:#555;margin-top:4px;text-transform:uppercase}
+.otDoc .otNumBox{border:2px solid #0F5132;border-radius:6px;padding:10px 20px;text-align:center;min-width:132px}
+.otDoc .otNumBox .k{font-size:9.5px;letter-spacing:.1em;color:#555;text-transform:uppercase}
+.otDoc .otNumBox .v{font-size:30px;font-weight:800;color:#0F5132;line-height:1.05;margin-top:2px}
+.otDoc .otBody{flex:1}
+.otDoc .otRow{display:flex;align-items:baseline;padding:9px 0;border-bottom:1px solid #e3e3e3}
+.otDoc .otRow .k{width:190px;font-size:11px;letter-spacing:.09em;color:#555;text-transform:uppercase;font-weight:700}
+.otDoc .otRow .v{font-size:16px;font-weight:600;color:#111}
+.otDoc .otSub{font-size:11px;letter-spacing:.13em;color:#0F5132;text-transform:uppercase;font-weight:800;
+  margin:26px 0 10px;padding-bottom:6px;border-bottom:2px solid #0F5132}
+.otDoc table.otCuart{border-collapse:collapse;width:100%}
+.otDoc table.otCuart th{background:#0F5132;color:#fff;font-size:10.5px;letter-spacing:.09em;
+  padding:9px 6px;text-transform:uppercase;border:1px solid #0F5132}
+.otDoc table.otCuart td{border:1px solid #999;padding:14px 6px;text-align:center;font-size:17px;font-weight:700}
+.otDoc table.otCuart td.pl{font-size:16px;font-weight:600;background:#f7f9f8}
+.otDoc .otTotales{display:flex;gap:26px;margin-top:24px}
+.otDoc .otTotIzq{flex:1}
+.otDoc .otPagar{border:2px solid #0F5132;border-radius:8px;padding:16px 24px;background:#f2f7f4;
+  text-align:right;min-width:250px;align-self:flex-start}
+.otDoc .otPagar .k{font-size:11px;letter-spacing:.1em;color:#0F5132;text-transform:uppercase;font-weight:800}
+.otDoc .otPagar .v{font-size:30px;font-weight:800;color:#0F5132;margin-top:5px;line-height:1.1}
+.otDoc .otPagar .d{font-size:10.5px;color:#666;margin-top:5px}
+.otDoc .otFirmas{display:flex;justify-content:space-between;gap:44px;margin-top:auto;padding-top:70px}
+.otDoc .otFirma{flex:1;text-align:center}
+.otDoc .otFirma .l{border-top:1.5px solid #111;padding-top:7px;font-size:11px;font-weight:700;letter-spacing:.05em}
+.otDoc .otFirma .c{font-size:9.5px;color:#666;margin-top:3px;text-transform:uppercase;letter-spacing:.07em}
+.otDoc .otPie{margin-top:22px;padding-top:10px;border-top:1px solid #ddd;
+  font-size:9.5px;color:#888;display:flex;justify-content:space-between}
 </style>
 </head>
 <body>
@@ -2051,44 +2070,56 @@ function otRecalcular(){
 }
 
 function otDocHTML(o){
-  const cuart=o.cuarteles||[];
-  const celdas=[0,1,2,3,4].map(i=>cuart[i]?cuart[i].cuartel:"");
-  const plantas=[0,1,2,3,4].map(i=>cuart[i]?num(cuart[i].plantas):"");
-  const fecha=f=>f?_fechaCorta(f)+"-"+String(new Date(f).getFullYear()).slice(2):"";
+  const cuart=(o.cuarteles||[]).filter(c=>c.cuartel);
+  const fecha=f=>{ if(!f) return "—"; const i=_fechaISO(f); if(!i) return "—";
+    const [y,m,d]=i.split("-"); const ms=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+    return `${d}-${ms[+m-1]}-${y}`; };
+  const emision=o.fecha_emision?fecha(o.fecha_emision):fecha(new Date().toISOString());
   return `<div class="otDoc">
-    <div class="otTitulo">
-      <div style="display:flex;align-items:center;gap:14px">
-        <img src="${LOGO_SJ}" alt="" style="width:62px;height:62px;object-fit:contain;mix-blend-mode:multiply">
-        <div>
-          <div class="otT1">ORDEN DE TRABAJO</div>
-          <div style="font-size:11px;color:#333;margin-top:2px">AGRÍCOLA SAN JOSÉ</div>
+    <div class="otHead">
+      <div class="otBrand">
+        <img src="${LOGO_SJ}" alt="">
+        <div><div class="otT1">ORDEN DE TRABAJO</div><div class="otT2">Agrícola San José</div></div>
+      </div>
+      <div class="otNumBox"><div class="k">N° de orden</div><div class="v">${o.n_orden}</div></div>
+    </div>
+
+    <div class="otBody">
+      <div class="otRow"><span class="k">Contratista</span><span class="v">${o.contratista||"—"}</span></div>
+      <div class="otRow"><span class="k">Labor</span><span class="v">${o.labor||"—"}</span></div>
+      <div class="otRow"><span class="k">Fecha inicio</span><span class="v">${fecha(o.fecha_inicio)}</span></div>
+      <div class="otRow"><span class="k">Fecha término</span><span class="v">${fecha(o.fecha_termino)}</span></div>
+
+      <div class="otSub">Detalle de cuarteles</div>
+      <table class="otCuart">
+        <tr><th style="width:170px">Cuartel</th>${cuart.map(c=>`<th>${c.cuartel}</th>`).join("")}</tr>
+        <tr><td style="background:#0F5132;color:#fff;font-size:11px;letter-spacing:.08em">N° DE PLANTAS</td>
+            ${cuart.map(c=>`<td class="pl">${num(c.plantas||0)}</td>`).join("")}</tr>
+      </table>
+
+      <div class="otSub">Valores</div>
+      <div class="otTotales">
+        <div class="otTotIzq">
+          <div class="otRow"><span class="k">Total de plantas</span><span class="v">${num(o.total_plantas||0)}</span></div>
+          <div class="otRow"><span class="k">Valor de labor</span><span class="v">$${num(o.valor_labor||0)} <span style="font-size:11px;color:#777;font-weight:400">por planta</span></span></div>
+          <div class="otRow"><span class="k">% Contratista</span><span class="v">${o.pct_contratista||0}%</span></div>
+          <div class="otRow"><span class="k">Costo empresa labor</span><span class="v">$${num(o.costo_empresa||0)} <span style="font-size:11px;color:#777;font-weight:400">por planta</span></span></div>
+        </div>
+        <div class="otPagar">
+          <div class="k">Total a pagar</div>
+          <div class="v">${money(o.total_pagar||0)}</div>
+          <div class="d">${num(o.total_plantas||0)} plantas × $${num(o.costo_empresa||0)}</div>
         </div>
       </div>
-      <div class="otNum">NUMERO DE ORDEN<b>N° ${o.n_orden}</b></div>
-    </div>
-    <div class="otCampo"><span class="k">LABOR:</span><span>${o.labor||""}</span></div>
-    <div class="otCampo"><span class="k">CUARTEL:</span></div>
-    <table class="otCuart"><tr>${celdas.map(c=>`<td>${c}</td>`).join("")}</tr></table>
-    <div class="otCampo" style="margin-top:6px"><span class="k">FECHA INICIO:</span><span>${fecha(o.fecha_inicio)}${o.fecha_termino?" al "+fecha(o.fecha_termino):""}</span></div>
-    <div class="otCampo"><span class="k">N° DE PLANTAS:</span></div>
-    <table class="otCuart"><tr>${plantas.map(p=>`<td>${p}</td>`).join("")}</tr></table>
-
-    <div class="otSec">DETALLE DE PLANTAS.</div>
-    <div class="otCampo" style="margin-top:10px"><span class="k">CONTRATISTA</span><span>${o.contratista||""}</span></div>
-
-    <div class="otTot">
-      <div class="otCampo"><span class="k">TOTAL DE PLANTAS:</span><span>${num(o.total_plantas||0)}</span></div>
-      <div class="otCampo"><span class="k">VALOR DE LABOR:</span><span>${o.valor_labor||0}</span></div>
-      <div class="otCampo"><span class="k">% CONTRATISTA</span><span>${o.pct_contratista||0}%</span></div>
-      <div class="otCampo"><span class="k">COSTO EMPRESA LABOR</span><span>${o.costo_empresa||0}</span></div>
-      <div class="otCampo"><span class="k">TOTAL A PAGAR</span><span><b>${money(o.total_pagar||0)}</b></span></div>
     </div>
 
     <div class="otFirmas">
-      <div class="otFirma">SERGIO ROJAS R.</div>
-      <div class="otFirma">CONTRATISTA<br>${o.contratista||""}</div>
+      <div class="otFirma"><div class="l">SERGIO ROJAS R.</div><div class="c">Agrícola San José</div></div>
+      <div class="otFirma"><div class="l">JUAN GUILLERMO MERY</div><div class="c">Gerente General</div></div>
+      <div class="otFirma"><div class="l">${o.contratista||""}</div><div class="c">Contratista</div></div>
     </div>
-    <div class="otFirmaCentro"><span class="l">JUAN GUILLERMO MERY<br>GERENTE GENERAL</span></div>
+
+    <div class="otPie"><span>Agrícola San José · Orden de trabajo N° ${o.n_orden}</span><span>Emitida el ${emision}</span></div>
   </div>`;
 }
 
@@ -2132,8 +2163,7 @@ async function anularOrden(nOrden){
   try{
     const {error}=await sb.from("ordenes_trabajo").delete().eq("n_orden",o.n_orden);
     if(error) throw error;
-    ORDENES=ORDENES.filter(x=>String(x.n_orden)!==String(nOrden));
-    PROX_ORDEN=otMenorLibre();
+    await cargarOrdenes();   // refrescar desde la base para que el correlativo quede correcto
     otHistorial(); otRecalcular();
   }catch(e){ alert("No se pudo anular: "+(e.message||e)); }
 }
@@ -2320,10 +2350,24 @@ if(_otGenerar) _otGenerar.addEventListener("click",async()=>{
   }
   const btn=document.getElementById("otGenerar"); btn.disabled=true; btn.textContent="Guardando...";
   try{
-    const orden={...d, n_orden:PROX_ORDEN, emitida_por:(usuarioActual&&usuarioActual.nombre)||"Admin"};
-    const {error}=await sb.from("ordenes_trabajo").insert(orden);
-    if(error) throw error;
-    ORDENES.unshift(orden); PROX_ORDEN++;
+    // Refrescar los números ya usados directamente desde Supabase (evita duplicados si
+    // la lista en memoria quedó desactualizada tras anular o si otro usuario emitió).
+    const {data:existentes}=await sb.from("ordenes_trabajo").select("n_orden");
+    const usados=new Set((existentes||[]).map(x=>Number(x.n_orden)));
+    let n=74; while(usados.has(n)) n++;
+
+    let orden=null, guardado=false, intentos=0;
+    while(!guardado && intentos<25){
+      orden={...d, n_orden:n, emitida_por:(usuarioActual&&usuarioActual.nombre)||"Admin"};
+      const {error}=await sb.from("ordenes_trabajo").insert(orden);
+      if(!error){ guardado=true; break; }
+      // si el número se ocupó entremedio, probar el siguiente
+      if(String(error.message||"").includes("duplicate key")){ n++; intentos++; continue; }
+      throw error;
+    }
+    if(!guardado) throw new Error("No se pudo asignar un número de orden libre.");
+
+    await cargarOrdenes();          // recargar historial y correlativo desde la base
     msg.innerHTML=`<span style="color:var(--verde);font-weight:600">✓ Orden N° ${orden.n_orden} guardada. Abriendo impresión...</span>`;
     otHistorial(); otRecalcular();
     setTimeout(()=>otImprimir(orden),400);
