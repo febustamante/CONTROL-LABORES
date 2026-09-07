@@ -205,6 +205,35 @@ footer b{color:var(--burdeo)}
 #app.conSidebar{padding-left:260px}
 @media(max-width:900px){#app.conSidebar{padding-left:0}}
 
+/* ===== ÓRDENES DE TRABAJO ===== */
+.otLbl{display:block;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--gris);font-weight:700;margin-bottom:4px}
+.otIn{width:100%;border:1px solid var(--linea);border-radius:9px;padding:9px 11px;font-family:inherit;font-size:13px;background:#fff;color:var(--tinta)}
+.otIn:focus{outline:2px solid var(--dorado-cl);border-color:var(--dorado)}
+
+/* Documento imprimible: oculto en pantalla, visible al imprimir */
+#otDocumento{display:none}
+@media print{
+  body *{visibility:hidden !important}
+  #otDocumento, #otDocumento *{visibility:visible !important}
+  #otDocumento{display:block !important;position:absolute;left:0;top:0;width:100%}
+  @page{size:letter portrait;margin:18mm}
+}
+.otDoc{font-family:Arial,Helvetica,sans-serif;color:#000;font-size:13px;border:2px solid #000;padding:26px 30px}
+.otDoc .otTitulo{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px}
+.otDoc .otT1{font-size:15px;font-weight:700;letter-spacing:.06em}
+.otDoc .otNum{text-align:center;font-size:12px}
+.otDoc .otNum b{display:block;font-size:20px;margin-top:3px}
+.otDoc .otCampo{display:flex;margin-bottom:5px}
+.otDoc .otCampo .k{width:130px;font-weight:700;font-size:12.5px}
+.otDoc table.otCuart{border-collapse:collapse;margin:2px 0 0 130px}
+.otDoc table.otCuart td{border:1px solid #000;padding:3px 16px;text-align:center;font-size:12.5px;min-width:62px}
+.otDoc .otSec{margin-top:26px;font-weight:700;font-size:12.5px;letter-spacing:.03em}
+.otDoc .otTot{margin-top:14px}
+.otDoc .otTot .otCampo .k{width:190px}
+.otDoc .otFirmas{display:flex;justify-content:space-between;margin-top:80px;gap:30px}
+.otDoc .otFirma{flex:1;text-align:center;border-top:1px solid #000;padding-top:5px;font-size:11px}
+.otDoc .otFirmaCentro{margin-top:46px;text-align:center}
+.otDoc .otFirmaCentro .l{border-top:1px solid #000;display:inline-block;padding-top:5px;min-width:270px;font-size:11px}
 </style>
 </head>
 <body>
@@ -281,6 +310,7 @@ footer b{color:var(--burdeo)}
       <a data-vista="cuarteles">▤ Cuarteles y Folios</a>
       <a data-vista="excedidos">⚠ Excedidos <span class="navBadge" id="navBadgeExc"></span></a>
       <a data-vista="cambios">⇄ Cambios tras aprobar <span class="navBadge" id="navBadgeCambios"></span></a>
+      <a data-vista="ordenes">🧾 Órdenes de trabajo</a>
     </nav>
     <div class="sbFoot" id="sbFoot"></div>
   </aside>
@@ -351,7 +381,59 @@ footer b{color:var(--burdeo)}
   <p class="hint">Folios donde algo cambió entre lo informado como preliminar y lo aprobado por Liliana. Útil para saber qué hay que actualizar en el ERP.</p>
   <div id="cambiosPostAprobacion"></div>
   </section>
+
+  <!-- VISTA: ÓRDENES DE TRABAJO -->
+  <section class="vista" data-vista="ordenes" style="display:none">
+  <h2>Órdenes de trabajo</h2>
+  <p class="hint">Genera la orden de pago al contratista por cuartel completo. Las plantas se sugieren desde el catálogo y el valor desde el presupuesto; todo es editable.</p>
+
+  <div class="gerCard" style="margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+      <div><label class="otLbl">Contratista</label><select id="otContratista" class="otIn"></select></div>
+      <div><label class="otLbl">Labor</label><select id="otLabor" class="otIn"></select></div>
+      <div><label class="otLbl">Fecha inicio</label><input type="date" id="otFechaIni" class="otIn"></div>
+      <div><label class="otLbl">Fecha término</label><input type="date" id="otFechaFin" class="otIn"></div>
+    </div>
+
+    <div style="margin-top:14px">
+      <label class="otLbl">Cuarteles y plantas <span style="font-weight:400;color:var(--gris)">(hasta 5 · las plantas se autocompletan)</span></label>
+      <div id="otCuarteles" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:6px"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--linea)">
+      <div><label class="otLbl">Valor de labor ($/planta)</label><input type="number" id="otValor" class="otIn" step="1" placeholder="0"><div id="otValorHint" style="font-size:10.5px;color:var(--gris);margin-top:3px"></div></div>
+      <div><label class="otLbl">% Contratista</label><input type="number" id="otPct" class="otIn" value="50" step="1"></div>
+      <div><label class="otLbl">Costo empresa labor</label><input type="text" id="otCostoEmp" class="otIn" readonly style="background:var(--crema);font-weight:700"></div>
+      <div><label class="otLbl">Total de plantas</label><input type="text" id="otTotalPl" class="otIn" readonly style="background:var(--crema);font-weight:700"></div>
+      <div><label class="otLbl">Total a pagar</label><input type="text" id="otTotalPagar" class="otIn" readonly style="background:var(--verde-bg);color:var(--verde);font-weight:700;font-size:15px"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;align-items:center">
+      <button id="otGenerar" style="border:0;background:var(--burdeo);color:#fff;font-family:inherit;font-weight:700;font-size:14px;padding:11px 22px;border-radius:10px;cursor:pointer">🖨 Generar e imprimir orden</button>
+      <button id="otLimpiar" style="border:1px solid var(--linea);background:#fff;color:var(--gris);font-family:inherit;font-size:13px;padding:11px 16px;border-radius:10px;cursor:pointer">Limpiar</button>
+      <span id="otProxNum" style="font-size:12.5px;color:var(--gris)"></span>
+    </div>
+    <div id="otMsg" style="margin-top:10px;font-size:13px"></div>
+  </div>
+
+  <div class="gerCard">
+    <h3>Órdenes emitidas</h3>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+      <div><label class="otLbl">Desde</label><input type="date" id="otHDesde" class="otIn" style="width:158px"></div>
+      <div><label class="otLbl">Hasta</label><input type="date" id="otHHasta" class="otIn" style="width:158px"></div>
+      <div><label class="otLbl">Contratista</label><select id="otHContr" class="otIn" style="width:190px"></select></div>
+      <button id="otHMes" style="border:1px solid var(--linea);background:#fff;color:var(--verde);font-family:inherit;font-size:12px;font-weight:600;padding:9px 13px;border-radius:9px;cursor:pointer">Este mes</button>
+      <button id="otHTodo" style="border:1px solid var(--linea);background:#fff;color:var(--gris);font-family:inherit;font-size:12px;padding:9px 13px;border-radius:9px;cursor:pointer">Todo</button>
+      <button id="otHPdf" style="border:1px solid var(--burdeo);background:var(--burdeo);color:#fff;font-family:inherit;font-size:12px;font-weight:700;padding:9px 15px;border-radius:9px;cursor:pointer">📄 Exportar PDF</button>
+    </div>
+    <div id="otHResumen" style="font-size:12.5px;color:var(--gris);margin-bottom:8px"></div>
+    <div id="otHistorial"></div>
+  </div>
+  </section>
 </div>
+
+<!-- DOCUMENTO IMPRIMIBLE (solo se ve al imprimir) -->
+<div id="otDocumento"></div>
 
 </div><!-- /#app -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -468,6 +550,7 @@ async function cargarDatos(){
   // cargar excedidos ya revisados/justificados
   await cargarRevisados();
   await cargarCambios();
+  await cargarOrdenes();
   return true;
 }
 
@@ -845,6 +928,7 @@ function render(){
   poblarFiltros();
   drawExcedidos();
   drawCambios();
+  drawOrdenes();
   drawResumenNoPresup();
   drawCuarteles();
   drawFolios();
@@ -1881,6 +1965,300 @@ async function _cargar(){
     },800);
   }catch(err){ add('rojo',`Error: ${err.message||err}`); btn.disabled=false; btn.textContent='Reintentar'; }
 }
+
+// ============================================================
+//  ÓRDENES DE TRABAJO (pago al contratista por cuartel completo)
+// ============================================================
+let ORDENES=[], PROX_ORDEN=74;
+
+async function cargarOrdenes(){
+  try{
+    const {data,error}=await sb.from("ordenes_trabajo").select("*").order("n_orden",{ascending:false});
+    if(error){ console.warn("ordenes_trabajo:",error.message); return; }
+    ORDENES=data||[];
+    PROX_ORDEN = ORDENES.length ? Math.max(...ORDENES.map(o=>o.n_orden||0))+1 : 74;
+  }catch(e){ console.warn("No se pudo cargar ordenes_trabajo",e); }
+}
+
+// Valor base sugerido: el precio del presupuesto YA trae el ×1,5, se divide para
+// obtener el valor de labor base que va en la orden.
+function otValorSugerido(labor,cuarteles){
+  const precios=cuarteles.map(c=>PRESUPUESTO[normLabor(labor)+"|"+(c||"").toUpperCase()]).filter(p=>p!=null);
+  if(!precios.length) return null;
+  const prom=precios.reduce((s,p)=>s+p,0)/precios.length;
+  return Math.round(prom/1.5);
+}
+
+function otFilasCuarteles(){
+  const cont=document.getElementById("otCuarteles"); if(!cont) return;
+  const cuartelesDisp=Object.keys(PLANTAS_TOTALES).filter(c=>cuartelPasaFiltro(c)).sort();
+  const opts='<option value="">—</option>'+cuartelesDisp.map(c=>`<option value="${c}">${c}</option>`).join("");
+  cont.innerHTML=[0,1,2,3,4].map(i=>`
+    <div style="display:flex;gap:6px;align-items:center">
+      <select class="otIn otCua" data-i="${i}" style="flex:1">${opts}</select>
+      <input type="number" class="otIn otPl" data-i="${i}" placeholder="plantas" style="width:98px">
+    </div>`).join("");
+  cont.querySelectorAll(".otCua").forEach(s=>s.addEventListener("change",()=>{
+    const i=s.dataset.i, cua=s.value;
+    const inp=cont.querySelector(`.otPl[data-i="${i}"]`);
+    inp.value = cua && PLANTAS_TOTALES[cua] ? PLANTAS_TOTALES[cua] : "";
+    otRecalcular();
+  }));
+  cont.querySelectorAll(".otPl").forEach(i=>i.addEventListener("input",otRecalcular));
+}
+
+function otDatos(){
+  const cont=document.getElementById("otCuarteles");
+  const cuarteles=[];
+  cont.querySelectorAll(".otCua").forEach(s=>{
+    const i=s.dataset.i, cua=s.value;
+    const pl=parseFloat(cont.querySelector(`.otPl[data-i="${i}"]`).value)||0;
+    if(cua) cuarteles.push({cuartel:cua,plantas:pl});
+  });
+  const valor=parseFloat(document.getElementById("otValor").value)||0;
+  const pct=parseFloat(document.getElementById("otPct").value)||0;
+  const totalPl=cuarteles.reduce((s,c)=>s+c.plantas,0);
+  const costoEmp=Math.round(valor*(1+pct/100));
+  return {
+    contratista:document.getElementById("otContratista").value,
+    labor:document.getElementById("otLabor").value,
+    fecha_inicio:document.getElementById("otFechaIni").value||null,
+    fecha_termino:document.getElementById("otFechaFin").value||null,
+    cuarteles, total_plantas:totalPl, valor_labor:valor, pct_contratista:pct,
+    costo_empresa:costoEmp, total_pagar:Math.round(totalPl*costoEmp)
+  };
+}
+
+function otRecalcular(){
+  const d=otDatos();
+  document.getElementById("otCostoEmp").value = d.costo_empresa?money(d.costo_empresa):"";
+  document.getElementById("otTotalPl").value  = d.total_plantas?num(d.total_plantas):"";
+  document.getElementById("otTotalPagar").value = d.total_pagar?money(d.total_pagar):"";
+  // sugerir valor de labor desde el presupuesto si está vacío
+  const inpValor=document.getElementById("otValor");
+  const hint=document.getElementById("otValorHint");
+  if(d.labor && d.cuarteles.length){
+    const sug=otValorSugerido(d.labor, d.cuarteles.map(c=>c.cuartel));
+    if(sug!=null){
+      hint.textContent=`Presupuesto sugiere ${money(sug)}/planta`;
+      if(!inpValor.value){ inpValor.value=sug; otRecalcular(); return; }
+    } else hint.textContent="Sin precio presupuestado para esta labor/cuartel";
+  } else hint.textContent="";
+  document.getElementById("otProxNum").textContent=`Próxima orden: N° ${PROX_ORDEN}`;
+}
+
+function otDocHTML(o){
+  const cuart=o.cuarteles||[];
+  const celdas=[0,1,2,3,4].map(i=>cuart[i]?cuart[i].cuartel:"");
+  const plantas=[0,1,2,3,4].map(i=>cuart[i]?num(cuart[i].plantas):"");
+  const fecha=f=>f?_fechaCorta(f)+"-"+String(new Date(f).getFullYear()).slice(2):"";
+  return `<div class="otDoc">
+    <div class="otTitulo">
+      <div class="otT1">ORDEN DE TRABAJO</div>
+      <div class="otNum">NUMERO DE ORDEN<b>N° ${o.n_orden}</b></div>
+    </div>
+    <div class="otCampo"><span class="k">LABOR:</span><span>${o.labor||""}</span></div>
+    <div class="otCampo"><span class="k">CUARTEL:</span></div>
+    <table class="otCuart"><tr>${celdas.map(c=>`<td>${c}</td>`).join("")}</tr></table>
+    <div class="otCampo" style="margin-top:6px"><span class="k">FECHA INICIO:</span><span>${fecha(o.fecha_inicio)}${o.fecha_termino?" al "+fecha(o.fecha_termino):""}</span></div>
+    <div class="otCampo"><span class="k">N° DE PLANTAS:</span></div>
+    <table class="otCuart"><tr>${plantas.map(p=>`<td>${p}</td>`).join("")}</tr></table>
+
+    <div class="otSec">DETALLE DE PLANTAS.</div>
+    <div class="otCampo" style="margin-top:10px"><span class="k">CONTRATISTA</span><span>${o.contratista||""}</span></div>
+
+    <div class="otTot">
+      <div class="otCampo"><span class="k">TOTAL DE PLANTAS:</span><span>${num(o.total_plantas||0)}</span></div>
+      <div class="otCampo"><span class="k">VALOR DE LABOR:</span><span>${o.valor_labor||0}</span></div>
+      <div class="otCampo"><span class="k">% CONTRATISTA</span><span>${o.pct_contratista||0}%</span></div>
+      <div class="otCampo"><span class="k">COSTO EMPRESA LABOR</span><span>${o.costo_empresa||0}</span></div>
+      <div class="otCampo"><span class="k">TOTAL A PAGAR</span><span><b>${money(o.total_pagar||0)}</b></span></div>
+    </div>
+
+    <div class="otFirmas">
+      <div class="otFirma">SERGIO ROJAS R.</div>
+      <div class="otFirma">CONTRATISTA<br>${o.contratista||""}</div>
+    </div>
+    <div class="otFirmaCentro"><span class="l">JUAN GUILLERMO IBAÑEZ<br>GERENTE GENERAL</span></div>
+  </div>`;
+}
+
+function otImprimir(o){
+  document.getElementById("otDocumento").innerHTML=otDocHTML(o);
+  window.print();
+}
+
+// Devuelve las órdenes que pasan los filtros del historial
+function otHistorialFiltrado(){
+  const desde=document.getElementById("otHDesde")?.value||"";
+  const hasta=document.getElementById("otHHasta")?.value||"";
+  const contr=document.getElementById("otHContr")?.value||"";
+  return ORDENES.filter(o=>{
+    const f=_fechaISO(o.fecha_emision||o.fecha_inicio||"");
+    if(desde && (!f || f<desde)) return false;
+    if(hasta && (!f || f>hasta)) return false;
+    if(contr && o.contratista!==contr) return false;
+    return true;
+  });
+}
+
+function otHistorial(){
+  const cont=document.getElementById("otHistorial"); if(!cont) return;
+  // poblar filtro de contratistas
+  const selC=document.getElementById("otHContr");
+  if(selC && !selC.dataset.listo){
+    const cs=[...new Set(ORDENES.map(o=>o.contratista).filter(Boolean))].sort();
+    selC.innerHTML='<option value="">Todos</option>'+cs.map(c=>`<option value="${c}">${c}</option>`).join("");
+    selC.dataset.listo="1";
+  }
+  const lista=otHistorialFiltrado();
+  const resumen=document.getElementById("otHResumen");
+  if(resumen){
+    const tp=lista.reduce((s,o)=>s+(Number(o.total_plantas)||0),0);
+    const tt=lista.reduce((s,o)=>s+(Number(o.total_pagar)||0),0);
+    resumen.innerHTML = lista.length
+      ? `<b>${lista.length}</b> orden(es) · <b>${num(tp)}</b> plantas · <b style="color:var(--verde)">${money(tt)}</b> total`
+      : "";
+  }
+  if(!lista.length){ cont.innerHTML='<p class="empty">No hay órdenes en el período elegido.</p>'; return; }
+  cont.innerHTML=`<table class="gtabla">
+    <tr><th>N°</th><th>Fecha</th><th>Contratista</th><th>Labor</th><th>Cuarteles</th><th style="text-align:right">Plantas</th><th style="text-align:right">Total</th><th></th></tr>
+    ${lista.map(o=>{
+      const cu=(o.cuarteles||[]).map(c=>c.cuartel).join(", ");
+      return `<tr><td><b>${o.n_orden}</b></td><td>${_fechaCorta(o.fecha_emision||o.fecha_inicio||"")}</td><td>${o.contratista||""}</td><td>${o.labor||""}</td><td>${cu}</td>
+        <td class="num">${num(o.total_plantas||0)}</td><td class="num">${money(o.total_pagar||0)}</td>
+        <td><button class="otReimp" data-n="${o.n_orden}" style="border:1px solid var(--linea);background:#fff;color:var(--verde);font-family:inherit;font-size:11px;font-weight:600;padding:3px 9px;border-radius:8px;cursor:pointer">🖨 Reimprimir</button></td></tr>`;
+    }).join("")}</table>`;
+  cont.querySelectorAll(".otReimp").forEach(b=>b.addEventListener("click",()=>{
+    const o=ORDENES.find(x=>String(x.n_orden)===b.dataset.n);
+    if(o) otImprimir(o);
+  }));
+}
+
+// Exporta el historial filtrado como PDF (vía diálogo de impresión)
+function otHistorialPDF(){
+  const lista=otHistorialFiltrado();
+  if(!lista.length){ alert("No hay órdenes en el período elegido."); return; }
+  const desde=document.getElementById("otHDesde").value, hasta=document.getElementById("otHHasta").value;
+  const contr=document.getElementById("otHContr").value;
+  const tp=lista.reduce((s,o)=>s+(Number(o.total_plantas)||0),0);
+  const tt=lista.reduce((s,o)=>s+(Number(o.total_pagar)||0),0);
+  let periodo="Todas las órdenes";
+  if(desde||hasta) periodo=`Del ${desde?_fechaCorta(desde):"inicio"} al ${hasta?_fechaCorta(hasta):"hoy"}`;
+  const html=`<div class="otDoc" style="font-size:11px">
+    <div class="otTitulo"><div class="otT1">ÓRDENES DE TRABAJO EMITIDAS</div>
+      <div class="otNum" style="text-align:right;font-size:11px">AGRÍCOLA SAN JOSÉ<br><b style="font-size:12px">${periodo}</b></div></div>
+    ${contr?`<div style="margin-bottom:8px;font-size:12px"><b>Contratista:</b> ${contr}</div>`:""}
+    <table style="width:100%;border-collapse:collapse;font-size:10.5px">
+      <tr style="background:#eee">
+        <th style="border:1px solid #000;padding:4px">N°</th>
+        <th style="border:1px solid #000;padding:4px">Fecha</th>
+        <th style="border:1px solid #000;padding:4px">Contratista</th>
+        <th style="border:1px solid #000;padding:4px">Labor</th>
+        <th style="border:1px solid #000;padding:4px">Cuarteles</th>
+        <th style="border:1px solid #000;padding:4px;text-align:right">Plantas</th>
+        <th style="border:1px solid #000;padding:4px;text-align:right">Valor</th>
+        <th style="border:1px solid #000;padding:4px;text-align:right">Total</th>
+      </tr>
+      ${lista.map(o=>`<tr>
+        <td style="border:1px solid #000;padding:3px;text-align:center"><b>${o.n_orden}</b></td>
+        <td style="border:1px solid #000;padding:3px">${_fechaCorta(o.fecha_emision||o.fecha_inicio||"")}</td>
+        <td style="border:1px solid #000;padding:3px">${o.contratista||""}</td>
+        <td style="border:1px solid #000;padding:3px">${o.labor||""}</td>
+        <td style="border:1px solid #000;padding:3px">${(o.cuarteles||[]).map(c=>c.cuartel).join(", ")}</td>
+        <td style="border:1px solid #000;padding:3px;text-align:right">${num(o.total_plantas||0)}</td>
+        <td style="border:1px solid #000;padding:3px;text-align:right">${o.costo_empresa||0}</td>
+        <td style="border:1px solid #000;padding:3px;text-align:right">${money(o.total_pagar||0)}</td>
+      </tr>`).join("")}
+      <tr style="background:#eee;font-weight:700">
+        <td colspan="5" style="border:1px solid #000;padding:5px;text-align:right">TOTALES (${lista.length} órdenes)</td>
+        <td style="border:1px solid #000;padding:5px;text-align:right">${num(tp)}</td>
+        <td style="border:1px solid #000;padding:5px"></td>
+        <td style="border:1px solid #000;padding:5px;text-align:right">${money(tt)}</td>
+      </tr>
+    </table>
+    <div style="margin-top:14px;font-size:10px;color:#555">Emitido el ${new Date().toLocaleDateString("es-CL")}</div>
+  </div>`;
+  document.getElementById("otDocumento").innerHTML=html;
+  window.print();
+}
+
+function drawOrdenes(){
+  const selC=document.getElementById("otContratista"); if(!selC) return;
+  // contratistas y labores desde los datos ya cargados
+  const contratistas=[...new Set(FOLIOS.map(f=>f.contratista).filter(Boolean))].sort();
+  const listaC = contratistas.length?contratistas:["AGRÍCOLA SAN JOSÉ","ROBINSON ZURITA","CLAUDIO CASTILLO","JAVIER ESCUDERO","MAURICIO QUEZADA"];
+  selC.innerHTML='<option value="">—</option>'+listaC.map(c=>`<option value="${c}">${c}</option>`).join("");
+  const labores=[...new Set(FOLIOS.map(f=>f.labor).filter(Boolean))].sort();
+  document.getElementById("otLabor").innerHTML='<option value="">—</option>'+labores.map(l=>`<option value="${l}">${l}</option>`).join("");
+  otFilasCuarteles();
+  otRecalcular();
+  otHistorial();
+}
+
+// listeners del historial (filtros y exportar)
+["otHDesde","otHHasta","otHContr"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener("change",otHistorial);
+});
+const _otHMes=document.getElementById("otHMes");
+if(_otHMes) _otHMes.addEventListener("click",()=>{
+  const h=new Date();
+  const ini=new Date(h.getFullYear(),h.getMonth(),1);
+  const z=n=>String(n).padStart(2,'0');
+  const fmt=d=>d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
+  document.getElementById("otHDesde").value=fmt(ini);
+  document.getElementById("otHHasta").value=fmt(h);
+  otHistorial();
+});
+const _otHTodo=document.getElementById("otHTodo");
+if(_otHTodo) _otHTodo.addEventListener("click",()=>{
+  document.getElementById("otHDesde").value="";
+  document.getElementById("otHHasta").value="";
+  document.getElementById("otHContr").value="";
+  otHistorial();
+});
+const _otHPdf=document.getElementById("otHPdf");
+if(_otHPdf) _otHPdf.addEventListener("click",otHistorialPDF);
+
+// listeners
+["otValor","otPct"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener("input",otRecalcular);
+});
+["otLabor","otContratista"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener("change",()=>{ document.getElementById("otValor").value=""; otRecalcular(); });
+});
+const _otLimpiar=document.getElementById("otLimpiar");
+if(_otLimpiar) _otLimpiar.addEventListener("click",()=>{
+  ["otContratista","otLabor","otFechaIni","otFechaFin","otValor"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("otPct").value=50;
+  otFilasCuarteles(); otRecalcular();
+  document.getElementById("otMsg").innerHTML="";
+});
+
+const _otGenerar=document.getElementById("otGenerar");
+if(_otGenerar) _otGenerar.addEventListener("click",async()=>{
+  const msg=document.getElementById("otMsg");
+  const d=otDatos();
+  if(!d.contratista||!d.labor||!d.cuarteles.length||!d.valor_labor){
+    msg.innerHTML='<span style="color:var(--rojo);font-weight:600">Falta completar: contratista, labor, al menos un cuartel y el valor de labor.</span>';
+    return;
+  }
+  const btn=document.getElementById("otGenerar"); btn.disabled=true; btn.textContent="Guardando...";
+  try{
+    const orden={...d, n_orden:PROX_ORDEN, emitida_por:(usuarioActual&&usuarioActual.nombre)||"Admin"};
+    const {error}=await sb.from("ordenes_trabajo").insert(orden);
+    if(error) throw error;
+    ORDENES.unshift(orden); PROX_ORDEN++;
+    msg.innerHTML=`<span style="color:var(--verde);font-weight:600">✓ Orden N° ${orden.n_orden} guardada. Abriendo impresión...</span>`;
+    otHistorial(); otRecalcular();
+    setTimeout(()=>otImprimir(orden),400);
+  }catch(e){
+    msg.innerHTML=`<span style="color:var(--rojo);font-weight:600">No se pudo guardar: ${e.message||e}</span>`;
+  }finally{ btn.disabled=false; btn.textContent="🖨 Generar e imprimir orden"; }
+});
 
 // render() se llama tras ingresar el PIN
 </script>
