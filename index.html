@@ -387,7 +387,7 @@ footer b{color:var(--burdeo)}
   <h2>Órdenes de trabajo</h2>
   <p class="hint">Genera la orden de pago al contratista por cuartel completo. Las plantas se sugieren desde el catálogo y el valor desde el presupuesto; todo es editable.</p>
 
-  <div class="gerCard" style="margin-bottom:14px">
+  <div class="gerCard" style="margin-bottom:14px" id="otFormulario">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
       <div><label class="otLbl">Contratista</label><select id="otContratista" class="otIn"></select></div>
       <div><label class="otLbl">Labor</label><select id="otLabor" class="otIn"></select></div>
@@ -579,12 +579,15 @@ async function cargarRevisados(){
 // ====== ACCESOS (PIN de 4 dígitos) ======
 // Cambia los PIN aquí si lo necesitas. Cada rol ve solo sus grupos de centro de costo.
 const USUARIOS = {
-  "5511": { nombre: "Sergio Rojas",    grupos: ["EL CERRILLO"], admin:false },
-  "6622": { nombre: "Rodrigo Salinas", grupos: ["RULO","NUEVO SENDERO","VALDÉS"], admin:false },
+  // 'vistas' limita qué pestañas ve cada usuario. Si no se define, ve todas.
+  // La pestaña "ordenes" (Órdenes de trabajo, pago a contratistas) es solo
+  // para Admin y Gerencia, por ser una acción sensible con plata de por medio.
+  "5511": { nombre: "Sergio Rojas",    grupos: ["EL CERRILLO"], admin:false, vistas:["resumen","labores","cuarteles","excedidos","cambios","ordenes"] },
+  "6622": { nombre: "Rodrigo Salinas", grupos: ["RULO","NUEVO SENDERO","VALDÉS"], admin:false, vistas:["resumen","labores","cuarteles","excedidos","cambios","ordenes"] },
   "3344": { nombre: "Álvaro",          grupos: ["RULO","VALDÉS"],  admin:false, vistas:["cuarteles","excedidos"] },
   "4455": { nombre: "Paulina",         grupos: ["NUEVO SENDERO"],  admin:false, vistas:["cuarteles","excedidos"] },
-  "9999": { nombre: "Gerencia",        grupos: null, admin:false },  // null = ve todo
-  "7788": { nombre: "Admin",           grupos: null, admin:true }    // puede cargar y anular
+  "9999": { nombre: "Gerencia",        grupos: null, admin:false },  // null = ve todo, incluye órdenes
+  "7788": { nombre: "Admin",           grupos: null, admin:true }    // puede cargar, anular y emitir órdenes
 };
 
 let pin = "";
@@ -1976,7 +1979,7 @@ async function cargarOrdenes(){
     const {data,error}=await sb.from("ordenes_trabajo").select("*").order("n_orden",{ascending:false});
     if(error){ console.warn("ordenes_trabajo:",error.message); return; }
     ORDENES=data||[];
-    PROX_ORDEN = ORDENES.length ? Math.max(...ORDENES.map(o=>o.n_orden||0))+1 : 74;
+    PROX_ORDEN = otMenorLibre();
   }catch(e){ console.warn("No se pudo cargar ordenes_trabajo",e); }
 }
 
@@ -2054,7 +2057,13 @@ function otDocHTML(o){
   const fecha=f=>f?_fechaCorta(f)+"-"+String(new Date(f).getFullYear()).slice(2):"";
   return `<div class="otDoc">
     <div class="otTitulo">
-      <div class="otT1">ORDEN DE TRABAJO</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <img src="${LOGO_SJ}" alt="" style="width:62px;height:62px;object-fit:contain;mix-blend-mode:multiply">
+        <div>
+          <div class="otT1">ORDEN DE TRABAJO</div>
+          <div style="font-size:11px;color:#333;margin-top:2px">AGRÍCOLA SAN JOSÉ</div>
+        </div>
+      </div>
       <div class="otNum">NUMERO DE ORDEN<b>N° ${o.n_orden}</b></div>
     </div>
     <div class="otCampo"><span class="k">LABOR:</span><span>${o.labor||""}</span></div>
@@ -2086,6 +2095,47 @@ function otDocHTML(o){
 function otImprimir(o){
   document.getElementById("otDocumento").innerHTML=otDocHTML(o);
   window.print();
+}
+
+// Menor número de orden libre desde 74 (así se reutilizan los huecos al borrar)
+function otMenorLibre(){
+  const usados=new Set(ORDENES.map(o=>Number(o.n_orden)).filter(n=>!isNaN(n)));
+  let n=74;
+  while(usados.has(n)) n++;
+  return n;
+}
+
+// ¿Puede el usuario actual EMITIR órdenes?
+// Todos los que ven la pestaña pueden crear (Admin, Gerencia, Sergio, Rodrigo).
+// La restricción es por CAMPO: el desplegable de cuarteles solo ofrece los suyos.
+function otPuedeEmitir(){ return true; }
+// ¿Tiene alcance total (todos los campos)? Admin y Gerencia.
+function otAlcanceTotal(){
+  return !!window.ES_ADMIN || !window.GRUPOS_ROL;
+}
+// ¿Puede ANULAR esta orden? Admin y Gerencia todas; Sergio/Rodrigo solo las de sus campos.
+function otPuedeAnular(o){
+  if(otAlcanceTotal()) return true;
+  if(!window.GRUPOS_ROL) return false;
+  const cuarteles=(o.cuarteles||[]).map(c=>c.cuartel).filter(Boolean);
+  if(!cuarteles.length) return false;
+  // todos los cuarteles de la orden deben pertenecer a los campos del usuario
+  const misGrupos=window.GRUPOS_ROL.map(normGrupo);
+  return cuarteles.every(c=>misGrupos.includes(grupoDeCuartel(c)));
+}
+
+async function anularOrden(nOrden){
+  const o=ORDENES.find(x=>String(x.n_orden)===String(nOrden));
+  if(!o) return;
+  if(!otPuedeAnular(o)){ alert("No tienes permiso para anular esta orden (no pertenece a tus campos)."); return; }
+  if(!confirm(`¿Anular la orden N° ${o.n_orden}?\n\n${o.contratista||""} · ${o.labor||""}\n${money(o.total_pagar||0)}\n\nSe elimina del historial y el número queda libre para reutilizarse.`)) return;
+  try{
+    const {error}=await sb.from("ordenes_trabajo").delete().eq("n_orden",o.n_orden);
+    if(error) throw error;
+    ORDENES=ORDENES.filter(x=>String(x.n_orden)!==String(nOrden));
+    PROX_ORDEN=otMenorLibre();
+    otHistorial(); otRecalcular();
+  }catch(e){ alert("No se pudo anular: "+(e.message||e)); }
 }
 
 // Devuelve las órdenes que pasan los filtros del historial
@@ -2125,14 +2175,17 @@ function otHistorial(){
     <tr><th>N°</th><th>Fecha</th><th>Contratista</th><th>Labor</th><th>Cuarteles</th><th style="text-align:right">Plantas</th><th style="text-align:right">Total</th><th></th></tr>
     ${lista.map(o=>{
       const cu=(o.cuarteles||[]).map(c=>c.cuartel).join(", ");
+      const btnAnu = otPuedeAnular(o)
+        ? `<button class="otAnular" data-n="${o.n_orden}" style="border:1px solid var(--rojo);background:#fff;color:var(--rojo);font-family:inherit;font-size:11px;font-weight:600;padding:3px 9px;border-radius:8px;cursor:pointer;margin-left:5px">Anular</button>` : '';
       return `<tr><td><b>${o.n_orden}</b></td><td>${_fechaCorta(o.fecha_emision||o.fecha_inicio||"")}</td><td>${o.contratista||""}</td><td>${o.labor||""}</td><td>${cu}</td>
         <td class="num">${num(o.total_plantas||0)}</td><td class="num">${money(o.total_pagar||0)}</td>
-        <td><button class="otReimp" data-n="${o.n_orden}" style="border:1px solid var(--linea);background:#fff;color:var(--verde);font-family:inherit;font-size:11px;font-weight:600;padding:3px 9px;border-radius:8px;cursor:pointer">🖨 Reimprimir</button></td></tr>`;
+        <td style="white-space:nowrap"><button class="otReimp" data-n="${o.n_orden}" style="border:1px solid var(--linea);background:#fff;color:var(--verde);font-family:inherit;font-size:11px;font-weight:600;padding:3px 9px;border-radius:8px;cursor:pointer">🖨 Reimprimir</button>${btnAnu}</td></tr>`;
     }).join("")}</table>`;
   cont.querySelectorAll(".otReimp").forEach(b=>b.addEventListener("click",()=>{
     const o=ORDENES.find(x=>String(x.n_orden)===b.dataset.n);
     if(o) otImprimir(o);
   }));
+  cont.querySelectorAll(".otAnular").forEach(b=>b.addEventListener("click",()=>anularOrden(b.dataset.n)));
 }
 
 // Exporta el historial filtrado como PDF (vía diálogo de impresión)
@@ -2146,7 +2199,11 @@ function otHistorialPDF(){
   let periodo="Todas las órdenes";
   if(desde||hasta) periodo=`Del ${desde?_fechaCorta(desde):"inicio"} al ${hasta?_fechaCorta(hasta):"hoy"}`;
   const html=`<div class="otDoc" style="font-size:11px">
-    <div class="otTitulo"><div class="otT1">ÓRDENES DE TRABAJO EMITIDAS</div>
+    <div class="otTitulo">
+      <div style="display:flex;align-items:center;gap:12px">
+        <img src="${LOGO_SJ}" alt="" style="width:52px;height:52px;object-fit:contain;mix-blend-mode:multiply">
+        <div class="otT1">ÓRDENES DE TRABAJO EMITIDAS</div>
+      </div>
       <div class="otNum" style="text-align:right;font-size:11px">AGRÍCOLA SAN JOSÉ<br><b style="font-size:12px">${periodo}</b></div></div>
     ${contr?`<div style="margin-bottom:8px;font-size:12px"><b>Contratista:</b> ${contr}</div>`:""}
     <table style="width:100%;border-collapse:collapse;font-size:10.5px">
@@ -2194,6 +2251,13 @@ function drawOrdenes(){
   otFilasCuarteles();
   otRecalcular();
   otHistorial();
+  // el formulario de creación solo para quien puede emitir (Admin y Gerencia)
+  const form=document.getElementById("otFormulario");
+  if(form) form.style.display = otPuedeEmitir() ? "block" : "none";
+  const hint=document.querySelector('[data-vista="ordenes"] .hint');
+  if(hint) hint.textContent = otAlcanceTotal()
+    ? "Genera la orden de pago al contratista por cuartel completo. Las plantas se sugieren desde el catálogo y el valor desde el presupuesto; todo es editable."
+    : "Genera órdenes de pago para los cuarteles de tus campos. Las plantas y el valor se sugieren automáticamente.";
 }
 
 // listeners del historial (filtros y exportar)
@@ -2242,6 +2306,14 @@ const _otGenerar=document.getElementById("otGenerar");
 if(_otGenerar) _otGenerar.addEventListener("click",async()=>{
   const msg=document.getElementById("otMsg");
   const d=otDatos();
+  // seguridad: los cuarteles elegidos deben pertenecer a los campos del usuario
+  if(!otAlcanceTotal()){
+    const ajenos=d.cuarteles.map(c=>c.cuartel).filter(c=>!cuartelPasaFiltro(c));
+    if(ajenos.length){
+      msg.innerHTML=`<span style="color:var(--rojo);font-weight:600">No puedes emitir órdenes con cuarteles de otros campos: ${ajenos.join(", ")}</span>`;
+      return;
+    }
+  }
   if(!d.contratista||!d.labor||!d.cuarteles.length||!d.valor_labor){
     msg.innerHTML='<span style="color:var(--rojo);font-weight:600">Falta completar: contratista, labor, al menos un cuartel y el valor de labor.</span>';
     return;
