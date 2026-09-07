@@ -213,6 +213,7 @@ footer b{color:var(--burdeo)}
 /* Documento imprimible: oculto en pantalla, visible al imprimir */
 #otDocumento{display:none}
 @media print{
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
   body *{visibility:hidden !important}
   #otDocumento, #otDocumento *{visibility:visible !important}
   #otDocumento{display:block !important;position:absolute;left:0;top:0;width:100%}
@@ -240,6 +241,10 @@ footer b{color:var(--burdeo)}
   padding:9px 6px;text-transform:uppercase;border:1px solid #0F5132}
 .otDoc table.otCuart td{border:1px solid #999;padding:14px 6px;text-align:center;font-size:17px;font-weight:700}
 .otDoc table.otCuart td.pl{font-size:16px;font-weight:600;background:#f7f9f8}
+.otDoc table.otCuart td.va{font-size:14px;font-weight:600;color:#0F5132;padding:11px 6px}
+.otDoc table.otCuart td.otRotu{background:#0F5132;color:#fff;font-size:10.5px;letter-spacing:.08em;
+  font-weight:700;text-align:left;padding-left:12px}
+.otDoc table.otCuart td.otTotCol{background:#e8f0eb;color:#0F5132;font-weight:800}
 .otDoc .otTotales{display:flex;gap:26px;margin-top:24px}
 .otDoc .otTotIzq{flex:1}
 .otDoc .otPagar{border:2px solid #0F5132;border-radius:8px;padding:16px 24px;background:#f2f7f4;
@@ -2092,9 +2097,13 @@ function otDocHTML(o){
 
       <div class="otSub">Detalle de cuarteles</div>
       <table class="otCuart">
-        <tr><th style="width:170px">Cuartel</th>${cuart.map(c=>`<th>${c.cuartel}</th>`).join("")}</tr>
-        <tr><td style="background:#0F5132;color:#fff;font-size:11px;letter-spacing:.08em">N° DE PLANTAS</td>
-            ${cuart.map(c=>`<td class="pl">${num(c.plantas||0)}</td>`).join("")}</tr>
+        <tr><th style="width:170px">Cuartel</th>${cuart.map(c=>`<th>${c.cuartel}</th>`).join("")}<th style="width:130px">TOTAL</th></tr>
+        <tr><td class="otRotu">N° DE PLANTAS</td>
+            ${cuart.map(c=>`<td class="pl">${num(c.plantas||0)}</td>`).join("")}
+            <td class="pl otTotCol">${num(o.total_plantas||0)}</td></tr>
+        <tr><td class="otRotu">VALOR</td>
+            ${cuart.map(c=>`<td class="va">${money(Math.round((c.plantas||0)*(o.costo_empresa||0)))}</td>`).join("")}
+            <td class="va otTotCol">${money(o.total_pagar||0)}</td></tr>
       </table>
 
       <div class="otSub">Valores</div>
