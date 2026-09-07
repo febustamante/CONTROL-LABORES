@@ -2161,8 +2161,15 @@ async function anularOrden(nOrden){
   if(!otPuedeAnular(o)){ alert("No tienes permiso para anular esta orden (no pertenece a tus campos)."); return; }
   if(!confirm(`¿Anular la orden N° ${o.n_orden}?\n\n${o.contratista||""} · ${o.labor||""}\n${money(o.total_pagar||0)}\n\nSe elimina del historial y el número queda libre para reutilizarse.`)) return;
   try{
-    const {error}=await sb.from("ordenes_trabajo").delete().eq("n_orden",o.n_orden);
+    // .select() hace que Supabase devuelva las filas borradas: así sabemos si
+    // realmente se borró algo (si faltara el permiso de DELETE, vendría vacío).
+    const {data:borradas,error}=await sb.from("ordenes_trabajo")
+      .delete().eq("n_orden",o.n_orden).select();
     if(error) throw error;
+    if(!borradas || !borradas.length){
+      alert("No se pudo anular: la base de datos rechazó el borrado.\n\nFalta el permiso de DELETE en la tabla ordenes_trabajo.\nCorre el archivo permiso_borrar_ordenes.sql en Supabase y vuelve a intentar.");
+      return;
+    }
     await cargarOrdenes();   // refrescar desde la base para que el correlativo quede correcto
     otHistorial(); otRecalcular();
   }catch(e){ alert("No se pudo anular: "+(e.message||e)); }
@@ -2276,7 +2283,11 @@ function drawOrdenes(){
   const contratistas=[...new Set(FOLIOS.map(f=>f.contratista).filter(Boolean))].sort();
   const listaC = contratistas.length?contratistas:["AGRÍCOLA SAN JOSÉ","ROBINSON ZURITA","CLAUDIO CASTILLO","JAVIER ESCUDERO","MAURICIO QUEZADA"];
   selC.innerHTML='<option value="">—</option>'+listaC.map(c=>`<option value="${c}">${c}</option>`).join("");
-  const labores=[...new Set(FOLIOS.map(f=>f.labor).filter(Boolean))].sort();
+  // Solo labores de CAMPO: las administrativas (vacaciones, licencias, permisos,
+  // supervisión) y las generales no se pagan por cuartel a un contratista.
+  const labores=[...new Set(FOLIOS
+      .filter(f=>f.labor && _grupoLab(f.labor)==='Campo')
+      .map(f=>f.labor))].sort();
   document.getElementById("otLabor").innerHTML='<option value="">—</option>'+labores.map(l=>`<option value="${l}">${l}</option>`).join("");
   otFilasCuarteles();
   otRecalcular();
