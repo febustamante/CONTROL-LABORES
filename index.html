@@ -416,20 +416,7 @@ footer b{color:var(--burdeo)}
   <h2>Órdenes de trabajo</h2>
   <p class="hint">Genera la orden de pago al contratista por cuartel completo. Las plantas se sugieren desde el catálogo y el valor desde el presupuesto; todo es editable.</p>
 
-  <!-- Importación del archivo de Liliana: de dónde salen los pagos ya facturados -->
-  <div class="gerCard" style="margin-bottom:14px" id="otImportCard">
-    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:space-between">
-      <div style="flex:1;min-width:260px">
-        <h3 style="margin:0 0 4px">Pagos ya facturados</h3>
-        <p class="hint" style="margin:0">Sube el archivo de Liliana para saber qué cuarteles ya se pagaron. Se lee la columna <b>Fecha Factura</b> de la hoja Datos: si un cuartel y labor tienen fecha, está pagado. Solo aplica a <b>El Cerrillo</b> y a contratistas externos (no Agrícola San José).</p>
-      </div>
-      <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
-        <input type="file" id="otFilePagos" accept=".xlsx,.xls" style="display:none">
-        <button id="otBtnPagos" style="border:0;background:var(--verde);color:#fff;font-family:inherit;font-weight:700;font-size:13px;padding:10px 18px;border-radius:10px;cursor:pointer">📂 Importar archivo de Liliana</button>
-      </div>
-    </div>
-    <div id="otPagosEstado" style="margin-top:10px;font-size:12.5px;color:var(--gris)"></div>
-  </div>
+  <div id="otPagosEstado" style="font-size:12.5px;color:var(--gris);margin:-6px 0 14px"></div>
 
   <div class="gerCard" style="margin-bottom:14px" id="otFormulario">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
@@ -1476,6 +1463,14 @@ function _fechaISO(f){
   const z=n=>String(n).padStart(2,'0');
   return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
 }
+// fecha con año: "15-jul-2026" (para pagos y facturas, donde el año importa)
+function _fechaLarga(f){
+  if(!f) return "";
+  const iso=_fechaISO(f); if(!iso) return String(f);
+  const [y,mo,da]=iso.split("-");
+  const mes=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][parseInt(mo)-1];
+  return da+"-"+mes+"-"+y;
+}
 // fecha corta legible: "15-jul"
 function _fechaCorta(f){
   if(!f) return "";
@@ -1832,6 +1827,16 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   // detalle línea por línea (para folios_detalle: comparar cambios tras aprobar)
   paraCargar.detalleLil = rowsLil ? _detalleLil(rowsLil) : [];
   paraCargar.detalleRep = rowsRep ? _detalleRep(rowsRep) : [];
+  // pagos ya facturados (columna FECHA FACTURA) — sale del mismo archivo de Liliana
+  paraCargar.pagos = null;
+  if(rowsLil){
+    try{
+      const {lista}=otLeerPagos(rowsLil);
+      paraCargar.pagos = lista;
+      const cs=[...new Set(lista.map(p=>p.contratista))].length;
+      add('verde',`✓ Pagos facturados: ${num(lista.length)} combinaciones cuartel + labor ya pagadas en El Cerrillo (${cs} contratista(s)). Se usarán en Órdenes de trabajo para no pagar dos veces.`);
+    }catch(e){ avisos.push('Pagos facturados: no se pudo leer la columna FECHA FACTURA ('+(e.message||e)+').'); }
+  }
   const pAp=paraCargar.aprobados.reduce((s,f)=>s+f.plantas,0);
   const pPr=prelim.reduce((s,f)=>s+f.plantas,0);
 
@@ -2010,6 +2015,13 @@ async function _cargar(){
     }
 
     add('verde',`<b>Carga completa.</b> Actualizando vista...`);
+    // pagos ya facturados (del mismo archivo de Liliana)
+    if(paraCargar.pagos && paraCargar.pagos.length){
+      const res=await otGuardarPagos(paraCargar.pagos);
+      add(res.nube?'verde':'naranja',
+        res.nube ? `✓ ${num(paraCargar.pagos.length)} pagos facturados guardados (Órdenes de trabajo ya avisa cuáles cuarteles no repetir).`
+                 : `Pagos facturados guardados solo en este navegador (${res.msg}). Corre tabla_pagos_facturados.sql en Supabase para que Sergio y Rodrigo también los vean.`);
+    }
     setTimeout(async()=>{ await cargarDatos();
       FOLIOS = usuarioActual.grupos ? FOLIOS_ALL.filter(f=>usuarioActual.grupos.includes((f.grupo||"").toUpperCase())) : FOLIOS_ALL;
       render(); btn.textContent='✓ Cargado';
@@ -2067,8 +2079,7 @@ async function cargarPagosFacturados(){
 }
 
 // Lee el archivo de Liliana y arma la lista de combinaciones ya pagadas
-function otLeerPagos(wb){
-  const rows=_sheet(wb,["Datos"]);
+function otLeerPagos(rows){
   if(!rows||!rows.length) throw new Error("No se encontró la hoja 'Datos' en el archivo.");
   const cols=Object.keys(rows[0]||{});
   const falta=["CENTRO COSTO","LABOR","CONTRATISTA","FECHA FACTURA","GRUPO CENTRO COSTO"]
@@ -2105,11 +2116,11 @@ function otLeerPagos(wb){
 }
 
 // Guarda en Supabase (reemplaza todo: el archivo de Liliana es la fuente de verdad)
-async function otGuardarPagos(lista, nombreArchivo){
+async function otGuardarPagos(lista){
   const hoy=_fmt(new Date());
   const filas=lista.map(p=>({...p, actualizado:hoy}));
   PAGOS_FACT=filas;
-  PAGOS_INFO={fecha:hoy, filas:filas.length, archivo:nombreArchivo, origen:"local"};
+  PAGOS_INFO={fecha:hoy, filas:filas.length, origen:"local"};
   // copia local siempre (para que funcione aunque falle la nube)
   try{ localStorage.setItem("pagos_facturados",JSON.stringify({filas,info:PAGOS_INFO})); }catch(e){}
   // y a la nube, para que Sergio y Rodrigo también lo vean
@@ -2132,13 +2143,13 @@ function otPagosEstado(msg,color){
   const el=document.getElementById("otPagosEstado"); if(!el) return;
   if(msg!==undefined){ el.innerHTML=`<span style="color:${color||"var(--gris)"}">${msg}</span>`; return; }
   if(!PAGOS_FACT.length){
-    el.innerHTML='<span style="color:var(--gris)">Todavía no se ha importado ningún archivo. Sin esto, el formulario no puede avisarte qué cuarteles ya están pagados.</span>';
+    el.innerHTML='<span style="color:var(--gris)">Todavía no hay pagos registrados. Se leen solos del archivo de Liliana la próxima vez que cargues los folios del día.</span>';
     return;
   }
   const contr=[...new Set(PAGOS_FACT.map(p=>p.contratista))].length;
   const nube = PAGOS_INFO && PAGOS_INFO.origen==="nube";
-  el.innerHTML=`<b style="color:var(--verde)">✓ ${num(PAGOS_FACT.length)}</b> combinaciones cuartel + labor ya pagadas · ${contr} contratista(s)`
-    + (PAGOS_INFO&&PAGOS_INFO.fecha?` · importado el ${_fechaCorta(PAGOS_INFO.fecha)}`:"")
+  el.innerHTML=`<b style="color:var(--verde)">✓ ${num(PAGOS_FACT.length)}</b> cuartel + labor ya pagados en El Cerrillo · ${contr} contratista(s)`
+    + (PAGOS_INFO&&PAGOS_INFO.fecha?` · según la carga del ${_fechaCorta(PAGOS_INFO.fecha)}`:"")
     + (nube?` · <span style="color:var(--verde)">guardado en la nube</span>`
            :` · <span style="color:var(--dorado,#a67c00)">solo en este navegador</span>`);
 }
@@ -2151,6 +2162,122 @@ function otPagadosDe(contratista,labor){
   return PAGOS_FACT
     .filter(p=>normGrupo(p.contratista)===c && normLabor(p.labor)===l)
     .sort((a,b)=>a.cuartel.localeCompare(b.cuartel));
+}
+
+// Órdenes ya emitidas para esta labor + contratista, por cuartel
+// { "C11": {n_orden, fecha, plantas, total} }
+function otOrdenesDe(contratista,labor){
+  const c=normGrupo(contratista), l=normLabor(labor), map={};
+  ORDENES.forEach(o=>{
+    if(normGrupo(o.contratista)!==c || normLabor(o.labor)!==l) return;
+    (o.cuarteles||[]).forEach(x=>{
+      const cu=(x.cuartel||"").toUpperCase(); if(!cu) return;
+      // si hay varias órdenes para el mismo cuartel, se muestra la más nueva
+      const f=_fechaISO(o.fecha_emision||o.fecha_inicio||"");
+      if(!map[cu] || (f && f>(map[cu].fecha||""))){
+        map[cu]={n_orden:o.n_orden, fecha:f, plantas:x.plantas,
+                 total:Math.round((x.plantas||0)*(o.costo_empresa||0))};
+      }
+    });
+  });
+  return map;
+}
+
+// Mapa de estado de TODOS los cuarteles para esta labor + contratista:
+//   verde  = ya pagado (tiene fecha de factura en el archivo de Liliana)
+//   ámbar  = tiene orden de trabajo emitida pero todavía no aparece pagado
+//   gris   = todavía no se hace (ni orden ni pago)
+function otMapaCuarteles(contr,labor,sel){
+  const pagados=otPagadosDe(contr,labor);
+  const mapPag={}; pagados.forEach(p=>mapPag[p.cuartel]=p);
+  const mapOrd=otOrdenesDe(contr,labor);
+  const selUp=sel.map(x=>x.toUpperCase());
+
+  // universo: cuarteles de El Cerrillo que el usuario puede ver.
+  // El control de pagos aplica solo a ese campo, así que el resto queda fuera.
+  const esCerrillo=c=>grupoDeCuartel(c)===CAMPO_PAGOS;
+  const todos=[...new Set([
+    ...Object.keys(PLANTAS_TOTALES).filter(c=>cuartelPasaFiltro(c) && esCerrillo(c)),
+    ...Object.keys(mapPag),
+    ...Object.keys(mapOrd).filter(esCerrillo)
+  ].map(c=>c.toUpperCase()))].sort();
+  if(!todos.length) return `<div style="font-size:12px;color:var(--gris);padding:8px 11px;background:var(--crema);border-radius:9px">
+    El control de pagos repetidos aplica solo a El Cerrillo. En este campo no hay seguimiento de facturas.</div>`;
+
+  const ESTILO={
+    pagado:  {bg:"var(--verde-bg)",   bd:"var(--verde)",   tx:"var(--verde)"},
+    orden:   {bg:"var(--naranja-bg)", bd:"var(--naranja)", tx:"#8a6100"},
+    pend:    {bg:"var(--crema)",      bd:"var(--linea)",   tx:"var(--gris)"}
+  };
+  let nPag=0,nOrd=0,nPen=0;
+  const chips=todos.map(cu=>{
+    const est = mapPag[cu] ? "pagado" : (mapOrd[cu] ? "orden" : "pend");
+    if(est==="pagado") nPag++; else if(est==="orden") nOrd++; else nPen++;
+    const e=ESTILO[est];
+    const elegido=selUp.includes(cu);
+    return `<span class="otChip" data-cu="${cu}" data-est="${est}"
+      style="display:inline-block;padding:3px 9px;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;
+      border:${elegido?"2px":"1px"} solid ${elegido?"var(--rojo)":e.bd};
+      background:${e.bg};color:${e.tx}">${cu}</span>`;
+  }).join(" ");
+
+  const totPl=pagados.reduce((s,p)=>s+(Number(p.plantas)||0),0);
+  const punto=(c,t)=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px">
+    <span style="width:10px;height:10px;border-radius:3px;background:${c};display:inline-block"></span>${t}</span>`;
+
+  return `<div style="border:1px solid var(--linea);border-radius:10px;background:#fff;padding:10px 12px">
+    <div style="font-size:12.5px;font-weight:700;color:var(--tinta);margin-bottom:5px">
+      Estado de los cuarteles para ${labor} · ${contr}
+    </div>
+    <div style="font-size:11px;color:var(--gris);margin-bottom:8px">
+      ${punto("var(--verde)",`Pagados (${nPag})`)}
+      ${punto("var(--naranja)",`Con orden, sin pagar (${nOrd})`)}
+      ${punto("#cfcfcf",`Sin hacer (${nPen})`)}
+      · toca un cuartel para ver su detalle
+    </div>
+    <div id="otChips" style="line-height:2.1">${chips}</div>
+    <div id="otChipInfo" style="margin-top:9px"></div>
+    ${nPag?`<div style="font-size:11px;color:var(--gris);margin-top:8px;padding-top:7px;border-top:1px dashed var(--linea)">
+      ${num(Math.round(totPl))} plantas ya facturadas en esta labor.</div>`:""}
+  </div>`;
+}
+
+// Al tocar un cuartel, mostrar su detalle (fecha de pago / orden emitida)
+function otChipsClickeables(){
+  const cont=document.getElementById("otChips"); if(!cont) return;
+  const info=document.getElementById("otChipInfo");
+  const contr=document.getElementById("otContratista")?.value||"";
+  const labor=document.getElementById("otLabor")?.value||"";
+  cont.querySelectorAll(".otChip").forEach(ch=>ch.addEventListener("click",()=>{
+    const cu=ch.dataset.cu;
+    if(info.dataset.abierto===cu){ info.innerHTML=""; info.dataset.abierto=""; return; }
+    info.dataset.abierto=cu;
+    const p=otPagadosDe(contr,labor).find(x=>x.cuartel===cu);
+    const o=otOrdenesDe(contr,labor)[cu];
+    const plCat=PLANTAS_TOTALES[cu];
+    let cuerpo="";
+    if(p){
+      cuerpo=`<div style="color:var(--verde);font-weight:700">✓ Pagado</div>
+        <div>Fecha de pago (factura): <b>${_fechaLarga(p.fecha_factura)}</b></div>
+        <div>N° de factura: <b>${p.n_factura||"sin número"}</b></div>
+        <div>Plantas facturadas: <b>${num(Math.round(p.plantas||0))}</b></div>`;
+    }else if(o){
+      cuerpo=`<div style="color:#8a6100;font-weight:700">⏳ Orden emitida, sin pago registrado</div>
+        <div>Orden N° <b>${o.n_orden}</b>${o.fecha?` · emitida el <b>${_fechaLarga(o.fecha)}</b>`:""}</div>
+        <div>Plantas de la orden: <b>${num(Math.round(o.plantas||0))}</b>${o.total?` · <b>${money(o.total)}</b>`:""}</div>
+        <div style="color:var(--gris);font-size:11px;margin-top:3px">Aparecerá como pagado cuando Liliana le ponga fecha de factura.</div>`;
+    }else{
+      cuerpo=`<div style="color:var(--gris);font-weight:700">Sin hacer</div>
+        <div style="color:var(--gris)">No hay orden emitida ni pago registrado para ${labor} en este cuartel.</div>`;
+    }
+    if(o && p){
+      cuerpo+=`<div style="margin-top:5px;color:var(--gris);font-size:11px">También tiene la orden N° ${o.n_orden}${o.fecha?" del "+_fechaLarga(o.fecha):""}.</div>`;
+    }
+    info.innerHTML=`<div style="border:1px solid var(--linea);border-left:3px solid ${p?"var(--verde)":(o?"var(--naranja)":"#cfcfcf")};
+      border-radius:8px;padding:9px 12px;background:var(--crema);font-size:12px;line-height:1.65">
+      <div style="font-weight:700;font-size:13px;margin-bottom:3px">${cu}${plCat?` <span style="font-weight:400;color:var(--gris)">· ${num(plCat)} plantas en catálogo</span>`:""}</div>
+      ${cuerpo}</div>`;
+  }));
 }
 
 // Pinta el aviso bajo la grilla de cuarteles
@@ -2195,43 +2322,9 @@ function otPintarPagados(){
     </div>`;
   }
 
-  if(!pagados.length){
-    html+=`<div style="font-size:12px;color:var(--gris);padding:8px 11px;background:var(--verde-bg);border-radius:9px">
-      Ningún cuartel pagado aún para <b>${labor}</b> con ${contr}. Puedes emitir la orden tranquilo.</div>`;
-    cont.innerHTML=html; return;
-  }
 
-  const selUp=sel.map(x=>x.toUpperCase());
-  const totPl=pagados.reduce((s,p)=>s+(Number(p.plantas)||0),0);
-  // Vista compacta: los códigos como etiquetas. En rojo los que están elegidos ahora.
-  const chips=pagados.map(p=>{
-    const marcado=selUp.includes(p.cuartel);
-    return `<span title="Factura ${p.n_factura||"s/n"} · ${_fechaCorta(p.fecha_factura)}"
-      style="display:inline-block;padding:2px 8px;border-radius:7px;font-size:11.5px;font-weight:700;
-      border:1px solid ${marcado?"var(--rojo)":"var(--linea)"};
-      background:${marcado?"#fdf0f0":"var(--crema)"};color:${marcado?"var(--rojo)":"var(--verde)"}">${p.cuartel}</span>`;
-  }).join(" ");
-
-  html+=`<div style="border:1px solid var(--linea);border-radius:10px;background:#fff;padding:10px 12px">
-    <div style="font-size:12.5px;font-weight:700;color:var(--verde);margin-bottom:7px">
-      Ya pagados para ${labor} · ${contr} <span style="color:var(--gris);font-weight:400">(${pagados.length} cuarteles · ${num(Math.round(totPl))} plantas facturadas)</span>
-    </div>
-    <div style="line-height:2">${chips}</div>
-    <details style="margin-top:8px">
-      <summary style="cursor:pointer;font-size:11.5px;color:var(--gris)">Ver fechas y n° de factura</summary>
-      <div style="max-height:260px;overflow:auto;margin-top:5px">
-        <table class="gtabla">
-          <tr><th>Cuartel</th><th>Fecha factura</th><th>N° factura</th><th style="text-align:right">Plantas pagadas</th></tr>
-          ${pagados.map(p=>`<tr${selUp.includes(p.cuartel)?' style="background:#fdf0f0"':''}>
-            <td><b>${p.cuartel}</b></td><td>${_fechaCorta(p.fecha_factura)}</td>
-            <td>${p.n_factura||"—"}</td><td class="num">${num(Math.round(p.plantas||0))}</td></tr>`).join("")}
-          <tr style="font-weight:700;background:var(--crema)">
-            <td colspan="3">Total</td><td class="num">${num(Math.round(totPl))}</td></tr>
-        </table>
-      </div>
-    </details>
-  </div>`;
-  cont.innerHTML=html;
+  cont.innerHTML=html+otMapaCuarteles(contr,labor,sel);
+  otChipsClickeables();
 }
 
 // Valor base sugerido: el precio del presupuesto YA trae el ×1,5, se divide para
@@ -2407,7 +2500,7 @@ async function anularOrden(nOrden){
       return;
     }
     await cargarOrdenes();   // refrescar desde la base para que el correlativo quede correcto
-    otHistorial(); otRecalcular();
+    otHistorial(); otRecalcular(); otPintarPagados();
   }catch(e){ alert("No se pudo anular: "+(e.message||e)); }
 }
 
@@ -2530,9 +2623,6 @@ function drawOrdenes(){
   otHistorial();
   otPagosEstado();
   otPintarPagados();
-  // solo Admin/Gerencia importan el archivo (reemplaza el dato para todos)
-  const impCard=document.getElementById("otImportCard");
-  if(impCard) impCard.style.display = otAlcanceTotal() ? "block" : "none";
   // el formulario de creación solo para quien puede emitir (Admin y Gerencia)
   const form=document.getElementById("otFormulario");
   if(form) form.style.display = otPuedeEmitir() ? "block" : "none";
@@ -2566,41 +2656,6 @@ if(_otHTodo) _otHTodo.addEventListener("click",()=>{
 });
 const _otHPdf=document.getElementById("otHPdf");
 if(_otHPdf) _otHPdf.addEventListener("click",otHistorialPDF);
-
-// --- importar archivo de Liliana (pagos ya facturados) ---
-const _otBtnPagos=document.getElementById("otBtnPagos");
-const _otFilePagos=document.getElementById("otFilePagos");
-if(_otBtnPagos && _otFilePagos){
-  _otBtnPagos.addEventListener("click",()=>_otFilePagos.click());
-  _otFilePagos.addEventListener("change",e=>{
-    const file=e.target.files[0]; if(!file) return;
-    otPagosEstado("Leyendo "+file.name+"... (el archivo es grande, puede tardar unos segundos)","var(--gris)");
-    _otBtnPagos.disabled=true;
-    const r=new FileReader();
-    r.onload=async ev=>{
-      try{
-        const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:true});
-        const {lista,leidas,cerrillo}=otLeerPagos(wb);
-        if(!lista.length){
-          otPagosEstado("Se leyeron "+num(leidas)+" filas pero ninguna de El Cerrillo (sin Agrícola San José) tiene Fecha Factura. Revisa que sea el archivo correcto.","var(--rojo)");
-          return;
-        }
-        const res=await otGuardarPagos(lista,file.name);
-        otPagosEstado();
-        otPintarPagados();
-        if(!res.nube){
-          document.getElementById("otPagosEstado").innerHTML +=
-            `<div style="margin-top:6px;color:var(--rojo);font-size:11.5px">No se pudo guardar en la nube (${res.msg}). Los datos quedaron solo en este navegador: Sergio y Rodrigo no los verán hasta que se cree la tabla <code>pagos_facturados</code> en Supabase.</div>`;
-        }
-      }catch(err){
-        otPagosEstado("Error al leer el archivo: "+(err.message||err),"var(--rojo)");
-      }finally{
-        _otBtnPagos.disabled=false; _otFilePagos.value="";
-      }
-    };
-    r.readAsArrayBuffer(file);
-  });
-}
 
 // listeners
 ["otValor","otPct"].forEach(id=>{
@@ -2662,7 +2717,7 @@ if(_otGenerar) _otGenerar.addEventListener("click",async()=>{
 
     await cargarOrdenes();          // recargar historial y correlativo desde la base
     msg.innerHTML=`<span style="color:var(--verde);font-weight:600">✓ Orden N° ${orden.n_orden} guardada. Abriendo impresión...</span>`;
-    otHistorial(); otRecalcular();
+    otHistorial(); otRecalcular(); otPintarPagados();
     setTimeout(()=>otImprimir(orden),400);
   }catch(e){
     msg.innerHTML=`<span style="color:var(--rojo);font-weight:600">No se pudo guardar: ${e.message||e}</span>`;
