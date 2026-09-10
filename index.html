@@ -550,13 +550,21 @@ async function cargarDatos(){
   await cargarCatalogo();
   await cargarPresupuesto();
   // Supabase devuelve máx 1000 filas por consulta → paginar para traerlas TODAS
-  const cols="folio_pk,folio,estado,grupo,cuartel,labor,grupo_labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado";
+  const colsBase="folio_pk,folio,estado,grupo,cuartel,labor,grupo_labor,encargado,tipo,trabajadores,plantas,costo,fecha_creado,fecha_aprobado";
+  // "contratista" es una columna nueva; si todavía no está creada en Supabase se
+  // pide sin ella para que la app siga funcionando igual.
+  let cols=colsBase+",contratista";
+  window.SIN_COL_CONTRATISTA=false;
   let data=[], desde=0, lote=1000;
   while(true){
-    const { data:pagina, error } = await sb
+    let { data:pagina, error } = await sb
       .from("folios_labores")
       .select(cols)
       .range(desde, desde+lote-1);
+    if(error && /contratista/i.test(error.message||"")){
+      window.SIN_COL_CONTRATISTA=true; cols=colsBase;
+      ({data:pagina,error} = await sb.from("folios_labores").select(cols).range(desde, desde+lote-1));
+    }
     if(error){ alert("Error al cargar datos: "+error.message); return false; }
     data = data.concat(pagina||[]);
     if(!pagina || pagina.length<lote) break;   // última página
@@ -573,7 +581,7 @@ async function cargarDatos(){
       return {
         folio_pk:f.folio_pk||f.folio, folio:f.folio, estado:f.estado, grupo:f.grupo, cuartel:f.cuartel, labor:f.labor,
         grupoLabor:f.grupo_labor||"Sin clasificar", encargado:f.encargado, tipo:f.tipo, trab:f.trabajadores||0, plantas:f.plantas||0,
-        costo:f.costo||0, creado:f.fecha_creado||"", dias:dias,
+        costo:f.costo||0, creado:f.fecha_creado||"", dias:dias, contratista:f.contratista||"",
         variedad: VARIEDAD_CUARTEL[f.cuartel] || "Sin variedad"
       };
     });
@@ -1716,7 +1724,8 @@ function _procLil(rows){const g={};rows.forEach(r=>{const folio=_S(r['FOLIO']);i
   // agrupar por folio + cuartel + labor (un folio -A abarca varias combinaciones)
   const key=folio+'|'+cuartel+'|'+labor;
   if(!g[key])g[key]={folio,grupo:_S(r['GRUPO CENTRO COSTO']),cuartel,labor,
-    encargado:_S(r['ENCARGADO SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['FECHA']};
+    encargado:_S(r['ENCARGADO SAPA']),contratista:_S(r['CONTRATISTA']),
+    trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['FECHA']};
   const o=g[key];const npl=_N(r['N PLANTAS']);
   // Cuenta plantas si es TRATO, o si es DIARIO con más de 1 planta (diario=1 es jornada pura)
   if(trato || npl>1){o.trato=o.trato||trato;o.plantas+=npl;}
@@ -1738,7 +1747,8 @@ function _procRep(rows){const g={};rows.forEach(r=>{const folio=_S(r['Número de
   const cuartel=_S(r['Centro Costo']), labor=_S(r['Labor']);
   const key=folio+'|'+cuartel+'|'+labor;
   if(!g[key])g[key]={folio,estado:_up(r['Estado Folio']),grupo:_S(r['Grupo Centro Costo']),cuartel,
-    labor,encargado:_S(r['Encargado SAPA']),trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['Fecha de Creación']};
+    labor,encargado:_S(r['Encargado SAPA']),contratista:_S(r['Contratista']),
+    trato:false,plantas:0,costo:0,ruts:new Set(),fecha:r['Fecha de Creación']};
   const o=g[key];const uds=_N(r['Personal#UnidadesTrabajadasAux']);
   // Cuenta plantas si es TRATO, o si es DIARIO con más de 1 planta (diario=1 es jornada)
   if(trato || uds>1){o.trato=o.trato||trato;o.plantas+=uds;}
@@ -1747,7 +1757,8 @@ function _procRep(rows){const g={};rows.forEach(r=>{const folio=_S(r['Número de
   return Object.values(g).map(o=>_fila(o,o.estado));}
 function _fila(o,estado){return {folio_pk:o.folio+'|'+o.cuartel+'|'+o.labor, folio:o.folio,estado,grupo:o.grupo,cuartel:o.cuartel,labor:o.labor,
   grupo_labor:_grupoLab(o.labor),encargado:o.encargado,tipo:o.trato?'TRATO':'DIARIO',
-  trabajadores:o.ruts.size,plantas:Math.round(o.plantas),costo:Math.round(o.costo),fecha_creado:_fmt(o.fecha)};}
+  trabajadores:o.ruts.size,plantas:Math.round(o.plantas),costo:Math.round(o.costo),fecha_creado:_fmt(o.fecha),
+  contratista:o.contratista||""};}
 
 const _analizar=document.getElementById("analizar");
 if(_analizar) _analizar.addEventListener("click",()=>{
@@ -1899,9 +1910,19 @@ async function _cargar(){
   const add=(c,h)=>log.insertAdjacentHTML('beforeend',`<div style="padding:4px 0;color:var(--${c})">${h}</div>`);
   const btn=document.getElementById('confirmarCarga');btn.disabled=true;btn.textContent='Guardando...';
   try{
-    const aprob=paraCargar.aprobados.map(f=>({...f,fecha_aprobado:f.fecha_creado}));
+    let aprob=paraCargar.aprobados.map(f=>({...f,fecha_aprobado:f.fecha_creado}));
+    // Si la columna "contratista" todavía no existe en Supabase, se guarda sin ella.
+    if(window.SIN_COL_CONTRATISTA){
+      aprob=aprob.map(({contratista,...r})=>r);
+      add('naranja','La columna "contratista" no existe aún en folios_labores. Corre tabla_pagos_facturados.sql para que la lista de contratistas se arme sola.');
+    }
     for(let i=0;i<aprob.length;i+=500){
-      const {error}=await sb.from('folios_labores').upsert(aprob.slice(i,i+500),{onConflict:'folio_pk'});
+      let {error}=await sb.from('folios_labores').upsert(aprob.slice(i,i+500),{onConflict:'folio_pk'});
+      if(error && /contratista/i.test(error.message||"")){
+        window.SIN_COL_CONTRATISTA=true;
+        aprob=aprob.map(({contratista,...r})=>r);
+        ({error}=await sb.from('folios_labores').upsert(aprob.slice(i,i+500),{onConflict:'folio_pk'}));
+      }
       if(error) throw error;
     }
     add('verde',`✓ ${aprob.length} aprobados cargados/actualizados.`);
@@ -2181,6 +2202,31 @@ function otOrdenesDe(contratista,labor){
     });
   });
   return map;
+}
+
+// Contratistas agregados a mano (para uno nuevo que todavía no aparece en ningún archivo)
+function otContratistasManual(){
+  try{ return JSON.parse(localStorage.getItem("contratistas_manual")||"[]"); }catch(e){ return []; }
+}
+function otAgregarContratista(nombre){
+  const n=(nombre||"").trim().toUpperCase();
+  if(!n) return null;
+  const l=otContratistasManual();
+  if(!l.some(x=>normGrupo(x)===normGrupo(n))) l.push(n);
+  try{ localStorage.setItem("contratistas_manual",JSON.stringify(l)); }catch(e){}
+  return n;
+}
+// Lista viva de contratistas: folios + pagos de Liliana + órdenes emitidas + agregados a mano
+function otListaContratistas(){
+  const set=new Map();   // clave normalizada -> nombre tal cual se escribe
+  const add=c=>{ const t=(c||"").toString().trim(); if(t) set.set(normGrupo(t),t); };
+  FOLIOS_ALL.forEach(f=>add(f.contratista));
+  PAGOS_FACT.forEach(p=>add(p.contratista));
+  ORDENES.forEach(o=>add(o.contratista));
+  otContratistasManual().forEach(add);
+  // semilla mínima por si todavía no hay nada cargado
+  if(!set.size) ["AGRÍCOLA SAN JOSÉ","ROBINSON ZURITA","CLAUDIO CASTILLO","JAVIER ESCUDERO","MAURICIO QUEZADA","JAVIER ORELLANA"].forEach(add);
+  return [...set.values()].sort((a,b)=>a.localeCompare(b,"es"));
 }
 
 // ¿El panel muestra solo el contratista elegido o todos? (lo cambia el usuario)
@@ -2704,10 +2750,15 @@ function otHistorialPDF(){
 
 function drawOrdenes(){
   const selC=document.getElementById("otContratista"); if(!selC) return;
-  // contratistas y labores desde los datos ya cargados
-  const contratistas=[...new Set(FOLIOS.map(f=>f.contratista).filter(Boolean))].sort();
-  const listaC = contratistas.length?contratistas:["AGRÍCOLA SAN JOSÉ","ROBINSON ZURITA","CLAUDIO CASTILLO","JAVIER ESCUDERO","MAURICIO QUEZADA"];
-  selC.innerHTML='<option value="">—</option>'+listaC.map(c=>`<option value="${c}">${c}</option>`).join("");
+  // La lista de contratistas se arma sola desde TODO lo que hay cargado:
+  // los folios del día, los pagos del archivo de Liliana y las órdenes ya emitidas.
+  // Así, un contratista nuevo aparece solo, sin tocar el código.
+  const listaC = otListaContratistas();
+  const previo = selC.value;
+  selC.innerHTML='<option value="">—</option>'
+    + listaC.map(c=>`<option value="${c}">${c}</option>`).join("")
+    + '<option value="__nuevo__">+ Agregar contratista nuevo…</option>';
+  if(previo && listaC.includes(previo)) selC.value=previo;
   // Solo labores de CAMPO: las administrativas (vacaciones, licencias, permisos,
   // supervisión) y las generales no se pagan por cuartel a un contratista.
   const labores=[...new Set(FOLIOS
@@ -2760,7 +2811,14 @@ if(_otHPdf) _otHPdf.addEventListener("click",otHistorialPDF);
 });
 ["otLabor","otContratista"].forEach(id=>{
   const el=document.getElementById(id);
-  if(el) el.addEventListener("change",()=>{ document.getElementById("otValor").value=""; otRecalcular(); otPintarPagados(); });
+  if(el) el.addEventListener("change",()=>{
+    if(id==="otContratista" && el.value==="__nuevo__"){
+      const n=otAgregarContratista(prompt("Nombre del contratista nuevo (como aparecerá en la orden):",""));
+      drawOrdenes();                       // rearma la lista con el nuevo adentro
+      document.getElementById("otContratista").value = n || "";
+    }
+    document.getElementById("otValor").value=""; otRecalcular(); otPintarPagados();
+  });
 });
 const _otLimpiar=document.getElementById("otLimpiar");
 if(_otLimpiar) _otLimpiar.addEventListener("click",()=>{
