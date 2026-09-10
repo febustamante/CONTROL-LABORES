@@ -2183,19 +2183,69 @@ function otOrdenesDe(contratista,labor){
   return map;
 }
 
-// Mapa de estado de TODOS los cuarteles para esta labor + contratista:
+// ¿El panel muestra solo el contratista elegido o todos? (lo cambia el usuario)
+let OT_VISTA_TODOS = false;
+
+// "ROBINSON ZURITA" -> "R. Zurita"  (para que quepa dentro de la etiqueta)
+function _abrevContr(c){
+  const ps=(c||"").trim().split(/\s+/);
+  if(ps.length<2) return (ps[0]||"").slice(0,10);
+  const ap=ps[ps.length-1];
+  return ps[0][0].toUpperCase()+". "+ap.charAt(0).toUpperCase()+ap.slice(1).toLowerCase();
+}
+
+// Todos los contratistas externos que tocaron esta labor, por cuartel
+// { "C11": {pago:{...}, orden:{...}, contratista:"..."} }  — el de la evidencia más reciente
+function otEstadoLabor(labor){
+  const l=normLabor(labor), r={};
+  PAGOS_FACT.forEach(p=>{
+    if(normLabor(p.labor)!==l) return;
+    const cu=(p.cuartel||"").toUpperCase();
+    if(!r[cu]) r[cu]={pagos:[],ordenes:[]};
+    r[cu].pagos.push(p);
+  });
+  ORDENES.forEach(o=>{
+    if(normLabor(o.labor)!==l || _esPropio(o.contratista)) return;
+    (o.cuarteles||[]).forEach(x=>{
+      const cu=(x.cuartel||"").toUpperCase(); if(!cu) return;
+      if(!r[cu]) r[cu]={pagos:[],ordenes:[]};
+      r[cu].ordenes.push({contratista:o.contratista, n_orden:o.n_orden,
+        fecha:_fechaISO(o.fecha_emision||o.fecha_inicio||""), plantas:x.plantas,
+        total:Math.round((x.plantas||0)*(o.costo_empresa||0))});
+    });
+  });
+  return r;
+}
+
+// Mapa de estado de los cuarteles de El Cerrillo para una labor:
 //   verde  = ya pagado (tiene fecha de factura en el archivo de Liliana)
 //   ámbar  = tiene orden de trabajo emitida pero todavía no aparece pagado
 //   gris   = todavía no se hace (ni orden ni pago)
+// En modo "todos" cada etiqueta muestra además quién lo hizo.
 function otMapaCuarteles(contr,labor,sel){
-  const pagados=otPagadosDe(contr,labor);
-  const mapPag={}; pagados.forEach(p=>mapPag[p.cuartel]=p);
-  const mapOrd=otOrdenesDe(contr,labor);
   const selUp=sel.map(x=>x.toUpperCase());
+  const esCerrillo=c=>grupoDeCuartel(c)===CAMPO_PAGOS;
+  const todosContr=OT_VISTA_TODOS;
+
+  // evidencia según el modo
+  let mapPag={}, mapOrd={}, quien={};
+  if(todosContr){
+    const est=otEstadoLabor(labor);
+    Object.keys(est).forEach(cu=>{
+      const e=est[cu];
+      // el pago manda sobre la orden; si hay varios, el más reciente
+      const p=e.pagos.sort((a,b)=>(a.fecha_factura||"").localeCompare(b.fecha_factura||"")).pop();
+      const o=e.ordenes.sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"")).pop();
+      if(p){ mapPag[cu]=p; quien[cu]=p.contratista; }
+      if(o){ mapOrd[cu]=o; if(!p) quien[cu]=o.contratista; }
+    });
+  }else{
+    otPagadosDe(contr,labor).forEach(p=>mapPag[p.cuartel]=p);
+    mapOrd=otOrdenesDe(contr,labor);
+  }
 
   // universo: cuarteles de El Cerrillo que el usuario puede ver.
   // El control de pagos aplica solo a ese campo, así que el resto queda fuera.
-  const esCerrillo=c=>grupoDeCuartel(c)===CAMPO_PAGOS;
   const todos=[...new Set([
     ...Object.keys(PLANTAS_TOTALES).filter(c=>cuartelPasaFiltro(c) && esCerrillo(c)),
     ...Object.keys(mapPag),
@@ -2215,19 +2265,30 @@ function otMapaCuarteles(contr,labor,sel){
     if(est==="pagado") nPag++; else if(est==="orden") nOrd++; else nPen++;
     const e=ESTILO[est];
     const elegido=selUp.includes(cu);
+    const sub = todosContr && quien[cu]
+      ? `<div style="font-size:9.5px;font-weight:600;opacity:.8;margin-top:-1px">${_abrevContr(quien[cu])}</div>` : "";
     return `<span class="otChip" data-cu="${cu}" data-est="${est}"
-      style="display:inline-block;padding:3px 9px;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;
+      style="display:inline-block;text-align:center;padding:${todosContr?"3px 8px 4px":"3px 9px"};border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;vertical-align:top;
       border:${elegido?"2px":"1px"} solid ${elegido?"var(--rojo)":e.bd};
-      background:${e.bg};color:${e.tx}">${cu}</span>`;
+      background:${e.bg};color:${e.tx}">${cu}${sub}</span>`;
   }).join(" ");
 
-  const totPl=pagados.reduce((s,p)=>s+(Number(p.plantas)||0),0);
+  const totPl=Object.values(mapPag).reduce((s,p)=>s+(Number(p.plantas)||0),0);
   const punto=(c,t)=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px">
     <span style="width:10px;height:10px;border-radius:3px;background:${c};display:inline-block"></span>${t}</span>`;
+  const btn=(activo,txt,id)=>`<button id="${id}" style="border:1px solid ${activo?"var(--verde)":"var(--linea)"};
+    background:${activo?"var(--verde)":"#fff"};color:${activo?"#fff":"var(--gris)"};font-family:inherit;
+    font-size:11px;font-weight:600;padding:4px 10px;border-radius:7px;cursor:pointer">${txt}</button>`;
 
   return `<div style="border:1px solid var(--linea);border-radius:10px;background:#fff;padding:10px 12px">
-    <div style="font-size:12.5px;font-weight:700;color:var(--tinta);margin-bottom:5px">
-      Estado de los cuarteles para ${labor} · ${contr}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:5px">
+      <div style="font-size:12.5px;font-weight:700;color:var(--tinta)">
+        Estado de los cuarteles para ${labor} · ${todosContr?"todos los contratistas":contr}
+      </div>
+      <div style="display:flex;gap:5px">
+        ${btn(!todosContr,"Solo "+_abrevContr(contr),"otVerUno")}
+        ${btn(todosContr,"Todos","otVerTodos")}
+      </div>
     </div>
     <div style="font-size:11px;color:var(--gris);margin-bottom:8px">
       ${punto("var(--verde)",`Pagados (${nPag})`)}
@@ -2238,42 +2299,77 @@ function otMapaCuarteles(contr,labor,sel){
     <div id="otChips" style="line-height:2.1">${chips}</div>
     <div id="otChipInfo" style="margin-top:9px"></div>
     ${nPag?`<div style="font-size:11px;color:var(--gris);margin-top:8px;padding-top:7px;border-top:1px dashed var(--linea)">
-      ${num(Math.round(totPl))} plantas ya facturadas en esta labor.</div>`:""}
+      ${num(Math.round(totPl))} plantas ya facturadas en esta labor${todosContr?" (todos los contratistas)":""}.</div>`:""}
   </div>`;
 }
 
-// Al tocar un cuartel, mostrar su detalle (fecha de pago / orden emitida)
+// Al tocar un cuartel, mostrar su detalle (quién lo hizo, fecha de pago / orden)
 function otChipsClickeables(){
   const cont=document.getElementById("otChips"); if(!cont) return;
   const info=document.getElementById("otChipInfo");
   const contr=document.getElementById("otContratista")?.value||"";
   const labor=document.getElementById("otLabor")?.value||"";
+
+  // botones de cambio de vista
+  const b1=document.getElementById("otVerUno"), b2=document.getElementById("otVerTodos");
+  if(b1) b1.addEventListener("click",()=>{ OT_VISTA_TODOS=false; otPintarPagados(); });
+  if(b2) b2.addEventListener("click",()=>{ OT_VISTA_TODOS=true;  otPintarPagados(); });
+
   cont.querySelectorAll(".otChip").forEach(ch=>ch.addEventListener("click",()=>{
     const cu=ch.dataset.cu;
     if(info.dataset.abierto===cu){ info.innerHTML=""; info.dataset.abierto=""; return; }
     info.dataset.abierto=cu;
-    const p=otPagadosDe(contr,labor).find(x=>x.cuartel===cu);
-    const o=otOrdenesDe(contr,labor)[cu];
     const plCat=PLANTAS_TOTALES[cu];
-    let cuerpo="";
-    if(p){
-      cuerpo=`<div style="color:var(--verde);font-weight:700">✓ Pagado</div>
-        <div>Fecha de pago (factura): <b>${_fechaLarga(p.fecha_factura)}</b></div>
-        <div>N° de factura: <b>${p.n_factura||"sin número"}</b></div>
-        <div>Plantas facturadas: <b>${num(Math.round(p.plantas||0))}</b></div>`;
-    }else if(o){
-      cuerpo=`<div style="color:#8a6100;font-weight:700">⏳ Orden emitida, sin pago registrado</div>
-        <div>Orden N° <b>${o.n_orden}</b>${o.fecha?` · emitida el <b>${_fechaLarga(o.fecha)}</b>`:""}</div>
-        <div>Plantas de la orden: <b>${num(Math.round(o.plantas||0))}</b>${o.total?` · <b>${money(o.total)}</b>`:""}</div>
-        <div style="color:var(--gris);font-size:11px;margin-top:3px">Aparecerá como pagado cuando Liliana le ponga fecha de factura.</div>`;
+    let cuerpo="", color="#cfcfcf";
+
+    if(OT_VISTA_TODOS){
+      // todo lo que se sabe de este cuartel, venga de quien venga
+      const e=otEstadoLabor(labor)[cu];
+      const pagos=(e&&e.pagos)||[], ords=(e&&e.ordenes)||[];
+      if(!pagos.length && !ords.length){
+        cuerpo=`<div style="color:var(--gris);font-weight:700">Sin hacer</div>
+          <div style="color:var(--gris)">Ningún contratista tiene orden ni pago para ${labor} en este cuartel.</div>`;
+      }else{
+        color = pagos.length ? "var(--verde)" : "var(--naranja)";
+        cuerpo = pagos.sort((a,b)=>(b.fecha_factura||"").localeCompare(a.fecha_factura||"")).map(p=>
+          `<div style="margin-bottom:4px"><b>${p.contratista}</b>
+            <span style="color:var(--verde);font-weight:700">✓ pagado</span> el <b>${_fechaLarga(p.fecha_factura)}</b>
+            · factura ${p.n_factura||"s/n"} · ${num(Math.round(p.plantas||0))} plantas</div>`).join("")
+          + ords.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).map(o=>
+          `<div style="margin-bottom:4px"><b>${o.contratista}</b>
+            <span style="color:#8a6100;font-weight:700">⏳ orden N° ${o.n_orden}</span>${o.fecha?" del "+_fechaLarga(o.fecha):""}
+            · ${num(Math.round(o.plantas||0))} plantas${o.total?" · "+money(o.total):""}</div>`).join("");
+      }
     }else{
-      cuerpo=`<div style="color:var(--gris);font-weight:700">Sin hacer</div>
-        <div style="color:var(--gris)">No hay orden emitida ni pago registrado para ${labor} en este cuartel.</div>`;
+      const p=otPagadosDe(contr,labor).find(x=>x.cuartel===cu);
+      const o=otOrdenesDe(contr,labor)[cu];
+      if(p){
+        color="var(--verde)";
+        cuerpo=`<div style="color:var(--verde);font-weight:700">✓ Pagado</div>
+          <div>Fecha de pago (factura): <b>${_fechaLarga(p.fecha_factura)}</b></div>
+          <div>N° de factura: <b>${p.n_factura||"sin número"}</b></div>
+          <div>Plantas facturadas: <b>${num(Math.round(p.plantas||0))}</b></div>`;
+      }else if(o){
+        color="var(--naranja)";
+        cuerpo=`<div style="color:#8a6100;font-weight:700">⏳ Orden emitida, sin pago registrado</div>
+          <div>Orden N° <b>${o.n_orden}</b>${o.fecha?` · emitida el <b>${_fechaLarga(o.fecha)}</b>`:""}</div>
+          <div>Plantas de la orden: <b>${num(Math.round(o.plantas||0))}</b>${o.total?` · <b>${money(o.total)}</b>`:""}</div>
+          <div style="color:var(--gris);font-size:11px;margin-top:3px">Aparecerá como pagado cuando Liliana le ponga fecha de factura.</div>`;
+      }else{
+        cuerpo=`<div style="color:var(--gris);font-weight:700">Sin hacer</div>
+          <div style="color:var(--gris)">No hay orden emitida ni pago registrado para ${labor} en este cuartel.</div>`;
+      }
+      if(o && p) cuerpo+=`<div style="margin-top:5px;color:var(--gris);font-size:11px">También tiene la orden N° ${o.n_orden}${o.fecha?" del "+_fechaLarga(o.fecha):""}.</div>`;
+      // aviso si OTRO contratista también tocó este cuartel
+      const otros=otEstadoLabor(labor)[cu];
+      if(otros){
+        const ajenos=[...new Set([...otros.pagos.map(x=>x.contratista),...otros.ordenes.map(x=>x.contratista)])]
+          .filter(x=>normGrupo(x)!==normGrupo(contr));
+        if(ajenos.length) cuerpo+=`<div style="margin-top:6px;padding-top:5px;border-top:1px dashed var(--linea);font-size:11px;color:var(--gris)">
+          También lo trabajó: <b>${ajenos.join(", ")}</b> — cambia a "Todos" para ver el detalle.</div>`;
+      }
     }
-    if(o && p){
-      cuerpo+=`<div style="margin-top:5px;color:var(--gris);font-size:11px">También tiene la orden N° ${o.n_orden}${o.fecha?" del "+_fechaLarga(o.fecha):""}.</div>`;
-    }
-    info.innerHTML=`<div style="border:1px solid var(--linea);border-left:3px solid ${p?"var(--verde)":(o?"var(--naranja)":"#cfcfcf")};
+    info.innerHTML=`<div style="border:1px solid var(--linea);border-left:3px solid ${color};
       border-radius:8px;padding:9px 12px;background:var(--crema);font-size:12px;line-height:1.65">
       <div style="font-weight:700;font-size:13px;margin-bottom:3px">${cu}${plCat?` <span style="font-weight:400;color:var(--gris)">· ${num(plCat)} plantas en catálogo</span>`:""}</div>
       ${cuerpo}</div>`;
