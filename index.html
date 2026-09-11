@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -14,6 +14,7 @@
   --verde:#198754; --verde-bg:#E8F3EC; --naranja:#F9A825; --naranja-bg:#FEF6E6;
   --rojo:#D32F2F; --rojo-bg:#FBEAEA; --ambar:#F9A825; --linea:#EAEAEA;
   --sidebar:#0F5132; --sidebar-tx:#C9D8CD; --sidebar-activo:#146C43;
+  --tramite:#1565C0; --tramite-bg:#E7F0FB;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--tinta);line-height:1.5;-webkit-font-smoothing:antialiased}
@@ -2247,6 +2248,63 @@ function otOrdenesDe(contratista,labor){
   return map;
 }
 
+// Todas las órdenes ya emitidas para esta labor+contratista, agrupadas por cuartel,
+// CADA UNA con su valor unitario (a diferencia de otOrdenesDe, que solo guarda la
+// más reciente). Se necesita el valor para poder cruzar la orden contra la pasada
+// exacta que paga (mismo criterio que _kPago: contratista+labor+cuartel+valor).
+function otOrdenesPorCuartel(contratista,labor){
+  const c=normGrupo(contratista), l=normLabor(labor), map={};
+  ORDENES.forEach(o=>{
+    if(normGrupo(o.contratista)!==c || normLabor(o.labor)!==l) return;
+    const valor=Math.round(_N(o.valor_labor));
+    (o.cuarteles||[]).forEach(x=>{
+      const cu=(x.cuartel||"").toUpperCase(); if(!cu) return;
+      (map[cu]=map[cu]||[]).push({
+        valor_unitario:valor, n_orden:o.n_orden,
+        fecha:_fechaISO(o.fecha_emision||o.fecha_inicio||""), plantas:x.plantas,
+        total:Math.round((x.plantas||0)*(o.costo_empresa||0))
+      });
+    });
+  });
+  return map;
+}
+
+// Clasifica UN cuartel en uno de 4 estados, cruzando lo pagado, lo pendiente de
+// facturar y las órdenes emitidas — todo por el mismo criterio: contratista+labor+
+// cuartel+VALOR UNITARIO exacto (así una orden a $180 nunca "cierra" una pasada a $50).
+//   "pagado"    → esa pasada ya tiene fecha de factura en el archivo de Liliana
+//   "tramite"   → hay una orden emitida a ese precio, pero todavía sin factura
+//   "pendiente" → hay trabajo hecho a ese precio y NINGUNA orden lo cubre todavía
+//   null        → no hay ningún rastro (ni pago, ni pendiente, ni orden): sin hacer
+function _clasificarCuartel(pagos, pendientes, ordenes){
+  pagos=pagos||[]; pendientes=pendientes||[]; ordenes=ordenes||[];
+  if(!pagos.length && !pendientes.length && !ordenes.length) return null;
+  const vOrden = new Set(ordenes.map(o=>Math.round(_N(o.valor_unitario))));
+  const vPagado = new Set(pagos.map(p=>Math.round(_N(p.valor_unitario))));
+  // ¿algo pendiente de facturar SIN ninguna orden a ese mismo precio? → falta iniciar el trámite
+  const sinOrden = pendientes.some(p=>!vOrden.has(Math.round(_N(p.valor_unitario))));
+  if(sinOrden) return "pendiente";
+  // ¿algo pendiente de facturar CON orden a ese precio, o una orden a un precio que
+  // todavía no aparece ni pagado ni pendiente en el archivo de Liliana? → esperando pago
+  const conOrdenSinPagar = pendientes.some(p=>vOrden.has(Math.round(_N(p.valor_unitario))));
+  const vPendiente = new Set(pendientes.map(p=>Math.round(_N(p.valor_unitario))));
+  const ordenSinRastro = ordenes.some(o=>{
+    const v=Math.round(_N(o.valor_unitario));
+    return !vPagado.has(v) && !vPendiente.has(v);
+  });
+  if(conOrdenSinPagar || ordenSinRastro) return "tramite";
+  if(pagos.length) return "pagado";
+  return null;
+}
+
+// Color CSS de cada estado (para reusar igual en el mapa y en el detalle del cuartel)
+function _colorClasificacion(estado){
+  return estado==="pagado" ? "var(--verde)"
+       : estado==="tramite" ? "var(--tramite)"
+       : estado==="pendiente" ? "var(--naranja)"
+       : "#cfcfcf";
+}
+
 // Contratistas agregados a mano (para uno nuevo que todavía no aparece en ningún archivo)
 function otContratistasManual(){
   try{ return JSON.parse(localStorage.getItem("contratistas_manual")||"[]"); }catch(e){ return []; }
@@ -2300,6 +2358,7 @@ function otEstadoLabor(labor){
       if(!r[cu]) r[cu]={pagos:[],pendientes:[],ordenes:[]};
       r[cu].ordenes.push({contratista:o.contratista, n_orden:o.n_orden,
         fecha:_fechaISO(o.fecha_emision||o.fecha_inicio||""), plantas:x.plantas,
+        valor_unitario:Math.round(_N(o.valor_labor)),
         total:Math.round((x.plantas||0)*(o.costo_empresa||0))});
     });
   });
@@ -2307,56 +2366,62 @@ function otEstadoLabor(labor){
 }
 
 // Mapa de estado de los cuarteles de El Cerrillo para una labor:
-//   verde  = ya pagado (tiene fecha de factura en el archivo de Liliana)
-//   ámbar  = tiene orden de trabajo emitida pero todavía no aparece pagado
-//   gris   = todavía no se hace (ni orden ni pago)
+//   verde   = ya pagado (tiene fecha de factura en el archivo de Liliana)
+//   azul    = ya se emitió una orden de trabajo a ese precio, pero todavía sin factura
+//   ámbar   = hay trabajo hecho a ese precio y AÚN NO se emite ninguna orden
+//   gris    = todavía no se hace (ni orden ni pago ni trabajo)
 // En modo "todos" cada etiqueta muestra además quién lo hizo.
 function otMapaCuarteles(contr,labor,sel){
   const selUp=sel.map(x=>x.toUpperCase());
   const esCerrillo=c=>grupoDeCuartel(c)===CAMPO_PAGOS;
   const todosContr=OT_VISTA_TODOS;
 
-  // evidencia según el modo
-  let mapPag={}, mapPen={}, mapOrd={}, quien={};
+  // evidencia según el modo: por cuartel, arreglos de pagos/pendientes/órdenes
+  // (arreglos, no solo "el más reciente", porque puede haber varios precios
+  // distintos en el mismo cuartel — poda y repase, por ejemplo — y cada uno
+  // se clasifica por separado)
+  let porCuartel={}, quien={};
   if(todosContr){
     const est=otEstadoLabor(labor);
     Object.keys(est).forEach(cu=>{
       const e=est[cu];
-      const p=e.pagos.sort((a,b)=>(a.fecha_factura||"").localeCompare(b.fecha_factura||"")).pop();
-      const pe=e.pendientes.sort((a,b)=>(a.trabajo_fin||"").localeCompare(b.trabajo_fin||"")).pop();
-      const o=e.ordenes.sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"")).pop();
-      if(p){ mapPag[cu]=p; quien[cu]=p.contratista; }
-      if(pe){ mapPen[cu]=pe; if(!p) quien[cu]=pe.contratista; }
-      if(o){ mapOrd[cu]=o; if(!p&&!pe) quien[cu]=o.contratista; }
+      porCuartel[cu]={pagos:e.pagos, pendientes:e.pendientes, ordenes:e.ordenes};
+      const ult=[...e.pagos,...e.pendientes].sort((a,b)=>(a.trabajo_fin||a.fecha_factura||"").localeCompare(b.trabajo_fin||b.fecha_factura||"")).pop()
+              || [...e.ordenes].sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"")).pop();
+      if(ult) quien[cu]=ult.contratista;
     });
   }else{
+    const ordenesPorCu=otOrdenesPorCuartel(contr,labor);
     otPasadasDe(contr,labor).forEach(p=>{
-      if(p.fecha_factura) mapPag[p.cuartel]=p; else mapPen[p.cuartel]=p;
+      const cu=p.cuartel;
+      (porCuartel[cu]=porCuartel[cu]||{pagos:[],pendientes:[],ordenes:ordenesPorCu[cu]||[]});
+      (p.fecha_factura?porCuartel[cu].pagos:porCuartel[cu].pendientes).push(p);
     });
-    mapOrd=otOrdenesDe(contr,labor);
+    Object.keys(ordenesPorCu).forEach(cu=>{
+      if(!porCuartel[cu]) porCuartel[cu]={pagos:[],pendientes:[],ordenes:ordenesPorCu[cu]};
+    });
   }
 
   // universo: cuarteles de El Cerrillo que el usuario puede ver.
   // El control de pagos aplica solo a ese campo, así que el resto queda fuera.
   const todos=[...new Set([
     ...Object.keys(PLANTAS_TOTALES).filter(c=>cuartelPasaFiltro(c) && esCerrillo(c)),
-    ...Object.keys(mapPag), ...Object.keys(mapPen),
-    ...Object.keys(mapOrd).filter(esCerrillo)
+    ...Object.keys(porCuartel).filter(esCerrillo)
   ].map(c=>c.toUpperCase()))].sort();
   if(!todos.length) return `<div style="font-size:12px;color:var(--gris);padding:8px 11px;background:var(--crema);border-radius:9px">
     El control de pagos repetidos aplica solo a El Cerrillo. En este campo no hay seguimiento de facturas.</div>`;
 
   const ESTILO={
-    pagado:  {bg:"var(--verde-bg)",   bd:"var(--verde)",   tx:"var(--verde)"},
-    orden:   {bg:"var(--naranja-bg)", bd:"var(--naranja)", tx:"#8a6100"},
-    pend:    {bg:"var(--crema)",      bd:"var(--linea)",   tx:"var(--gris)"}
+    pagado:   {bg:"var(--verde-bg)",   bd:"var(--verde)",   tx:"var(--verde)"},
+    tramite:  {bg:"var(--tramite-bg)", bd:"var(--tramite)", tx:"var(--tramite)"},
+    pendiente:{bg:"var(--naranja-bg)", bd:"var(--naranja)", tx:"#8a6100"},
+    sinhacer: {bg:"var(--crema)",      bd:"var(--linea)",   tx:"var(--gris)"}
   };
-  let nPag=0,nOrd=0,nPen=0;
+  let nPag=0,nTramite=0,nPend=0,nSin=0;
   const chips=todos.map(cu=>{
-    // Ámbar manda sobre verde: si hay una pasada trabajada sin facturar (el repase)
-    // o una orden sin pagar, el cuartel NO está cerrado aunque algo ya se haya pagado.
-    const est = (mapPen[cu] || mapOrd[cu]) ? "orden" : (mapPag[cu] ? "pagado" : "pend");
-    if(est==="pagado") nPag++; else if(est==="orden") nOrd++; else nPen++;
+    const info=porCuartel[cu]||{pagos:[],pendientes:[],ordenes:[]};
+    const est = _clasificarCuartel(info.pagos, info.pendientes, info.ordenes) || "sinhacer";
+    if(est==="pagado") nPag++; else if(est==="tramite") nTramite++; else if(est==="pendiente") nPend++; else nSin++;
     const e=ESTILO[est];
     const elegido=selUp.includes(cu);
     const sub = todosContr && quien[cu]
@@ -2367,7 +2432,7 @@ function otMapaCuarteles(contr,labor,sel){
       background:${e.bg};color:${e.tx}">${cu}${sub}</span>`;
   }).join(" ");
 
-  const totPl=Object.values(mapPag).reduce((s,p)=>s+(Number(p.plantas)||0),0);   // solo facturadas
+  const totPl=Object.values(porCuartel).reduce((s,c)=>s+(c.pagos||[]).reduce((s2,p)=>s2+(Number(p.plantas)||0),0),0);
   const punto=(c,t)=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px">
     <span style="width:10px;height:10px;border-radius:3px;background:${c};display:inline-block"></span>${t}</span>`;
   const btn=(activo,txt,id)=>`<button id="${id}" style="border:1px solid ${activo?"var(--verde)":"var(--linea)"};
@@ -2386,8 +2451,9 @@ function otMapaCuarteles(contr,labor,sel){
     </div>
     <div style="font-size:11px;color:var(--gris);margin-bottom:8px">
       ${punto("var(--verde)",`Pagados y cerrados (${nPag})`)}
-      ${punto("var(--naranja)",`Con algo sin pagar (${nOrd})`)}
-      ${punto("#cfcfcf",`Sin hacer (${nPen})`)}
+      ${punto("var(--tramite)",`Orden emitida, esperando pago (${nTramite})`)}
+      ${punto("var(--naranja)",`Pendiente de generar orden (${nPend})`)}
+      ${punto("#cfcfcf",`Sin hacer (${nSin})`)}
       · toca un cuartel para ver su detalle
     </div>
     <div id="otChips" style="line-height:2.1">${chips}</div>
@@ -2437,30 +2503,37 @@ function otChipsClickeables(){
       const e=otEstadoLabor(labor)[cu];
       const pagos=(e&&e.pagos)||[], pend=(e&&e.pendientes)||[], ords=(e&&e.ordenes)||[];
       const pasadas=[...pagos,...pend];
-      if(!pasadas.length && !ords.length){
+      const estado=_clasificarCuartel(pagos,pend,ords);
+      if(!estado){
         cuerpo=`<div style="color:var(--gris);font-weight:700">Sin hacer</div>
           <div style="color:var(--gris)">Ningún contratista tiene orden ni trabajo para ${labor} en este cuartel.</div>`;
       }else{
-        color = (pend.length||ords.length) ? "var(--naranja)" : "var(--verde)";
+        color = _colorClasificacion(estado);
         // agrupar las pasadas por contratista para nombrarlas bien (1ª vuelta / repase)
         const porContr={};
         pasadas.forEach(p=>{ const k=normGrupo(p.contratista); (porContr[k]=porContr[k]||[]).push(p); });
         cuerpo = Object.values(porContr).map(g=>
           g.sort((a,b)=>(Number(b.valor_unitario)||0)-(Number(a.valor_unitario)||0))
            .map(p=>filaPasada(p,g,true)).join("")).join("")
-          + ords.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).map(o=>
-          `<div style="margin-bottom:4px"><b>${o.contratista}</b> ·
-            <span style="color:#8a6100;font-weight:700">orden N° ${o.n_orden}</span>${o.fecha?" del "+_fechaLarga(o.fecha):""}
-            · ${num(Math.round(o.plantas||0))} plantas${o.total?" · "+money(o.total):""}</div>`).join("");
+          + ords.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).map(o=>{
+            const yaPagada=pagos.some(p=>Math.round(_N(p.valor_unitario))===Math.round(_N(o.valor_unitario)));
+            const etq=yaPagada
+              ? `<span style="color:var(--verde);font-weight:700">orden N° ${o.n_orden} · ✓ ya pagada</span>`
+              : `<span style="color:var(--tramite);font-weight:700">orden N° ${o.n_orden} · ⏳ esperando pago</span>`;
+            return `<div style="margin-bottom:4px"><b>${o.contratista}</b> · ${etq}${o.fecha?" del "+_fechaLarga(o.fecha):""}
+              · ${num(Math.round(o.plantas||0))} plantas${o.total?" · "+money(o.total):""}</div>`;
+          }).join("");
       }
     }else{
       const pasadas=otPasadasCuartel(contr,labor,cu);
-      const o=otOrdenesDe(contr,labor)[cu];
+      const ords=otOrdenesPorCuartel(contr,labor)[cu]||[];
+      const pagos=pasadas.filter(p=>p.fecha_factura);
       const pend=pasadas.filter(p=>!p.fecha_factura);
-      if(!pasadas.length && !o){
+      const estado=_clasificarCuartel(pagos,pend,ords);
+      if(!estado){
         cuerpo=`<div style="color:var(--gris)">No hay trabajo ni orden registrada para ${labor} en este cuartel.</div>`;
       }else{
-        color = (pend.length||o) ? "var(--naranja)" : "var(--verde)";
+        color = _colorClasificacion(estado);
         if(pasadas.length){
           const sonPasadas=pasadas.length>1 && _nombrePasada(pasadas,pasadas[0])!=="";
           cuerpo += (sonPasadas
@@ -2469,11 +2542,19 @@ function otChipsClickeables(){
                ? `<div style="font-weight:700;margin-bottom:3px">Cobrado a ${pasadas.length} precios en la misma factura</div>` : ""))
             + pasadas.map(p=>filaPasada(p,pasadas,false)).join("");
         }
-        if(o) cuerpo+=`<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--linea)">
-          <span style="color:#8a6100;font-weight:700">Orden N° ${o.n_orden}</span>${o.fecha?" emitida el "+_fechaLarga(o.fecha):""}
-          · ${num(Math.round(o.plantas||0))} plantas${o.total?" · "+money(o.total):""}</div>`;
-        if(pend.length) cuerpo+=`<div style="color:var(--gris);font-size:11px;margin-top:4px">
-          Hay trabajo hecho sin factura: por eso el cuartel no está cerrado.</div>`;
+        if(ords.length) cuerpo += ords.slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).map(o=>{
+          const yaPagada=pagos.some(p=>Math.round(_N(p.valor_unitario))===Math.round(_N(o.valor_unitario)));
+          const etq=yaPagada
+            ? `<span style="color:var(--verde);font-weight:700">Orden N° ${o.n_orden} · ✓ ya pagada</span>`
+            : `<span style="color:var(--tramite);font-weight:700">Orden N° ${o.n_orden} · ⏳ esperando pago</span>`;
+          return `<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--linea)">
+            ${etq}${o.fecha?" emitida el "+_fechaLarga(o.fecha):""}
+            · ${num(Math.round(o.plantas||0))} plantas${o.total?" · "+money(o.total):""}</div>`;
+        }).join("");
+        if(estado==="pendiente") cuerpo+=`<div style="color:var(--gris);font-size:11px;margin-top:4px">
+          Hay trabajo hecho sin factura y sin orden emitida todavía: por eso está pendiente de generar orden.</div>`;
+        else if(estado==="tramite") cuerpo+=`<div style="color:var(--gris);font-size:11px;margin-top:4px">
+          Ya se emitió una orden para este trabajo: falta que Liliana registre la factura para cerrarlo.</div>`;
       }
       // aviso si OTRO contratista también tocó este cuartel
       const otros=otEstadoLabor(labor)[cu];
