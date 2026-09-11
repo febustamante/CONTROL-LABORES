@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -418,6 +418,12 @@ footer b{color:var(--burdeo)}
   <p class="hint">Genera la orden de pago al contratista por cuartel completo. Las plantas se sugieren desde el catálogo y el valor desde el presupuesto; todo es editable.</p>
 
   <div id="otPagosEstado" style="font-size:12.5px;color:var(--gris);margin:-6px 0 14px"></div>
+
+  <div class="gerCard" style="margin-bottom:14px">
+    <h3 style="margin-bottom:4px">📋 Pendientes de pago · todas las labores</h3>
+    <p class="hint" style="margin:0 0 10px">Filtra por color para ver de un vistazo qué falta generar, qué ya tiene orden esperando pago, o revisar lo ya cerrado. Toca una fila para armar la orden con esos datos.</p>
+    <div id="otResumenGlobal"></div>
+  </div>
 
   <div class="gerCard" style="margin-bottom:14px" id="otFormulario">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
@@ -2305,6 +2311,157 @@ function _colorClasificacion(estado){
        : "#cfcfcf";
 }
 
+// ============================================================
+//  RESUMEN GLOBAL — todas las labores y contratistas de El Cerrillo a la vez
+//  (para no depender de que el usuario "se acuerde" de revisar una labor puntual)
+// ============================================================
+let OT_FILTRO_RESUMEN = "pendiente";   // qué color se muestra por defecto al entrar
+
+// Días de diferencia entre hoy y una fecha ISO (yyyy-mm-dd). null si no hay fecha.
+function _diasDesde(f){
+  if(!f) return null;
+  const d=new Date(f+"T00:00:00");
+  if(isNaN(d)) return null;
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  return Math.round((hoy-d)/86400000);
+}
+
+// Arma UNA fila por cada combinación contratista+labor+cuartel+valor que tenga
+// algo de evidencia (pasada o ĺ orden), con su estado ya clasificado. Es el mismo
+// cruce que usa el mapa de un cuartel, pero para TODOS a la vez.
+function otResumenGlobal(){
+  const esCerrillo=c=>grupoDeCuartel(c)===CAMPO_PAGOS;
+  const combos={};
+  const reg=(contr,labor,cuartel,valor)=>{
+    const cu=(cuartel||"").toUpperCase();
+    if(!esCerrillo(cu)) return null;
+    const k=normGrupo(contr)+"|"+normLabor(labor)+"|"+cu+"|"+valor;
+    if(!combos[k]) combos[k]={contratista:contr,labor,cuartel:cu,valor,pagos:[],pendientes:[],ordenes:[]};
+    return combos[k];
+  };
+  PAGOS_FACT.forEach(p=>{
+    if(_esPropio(p.contratista)) return;
+    const c=reg(p.contratista,p.labor,p.cuartel,Math.round(_N(p.valor_unitario)));
+    if(!c) return;
+    (p.fecha_factura?c.pagos:c.pendientes).push(p);
+  });
+  ORDENES.forEach(o=>{
+    if(_esPropio(o.contratista)) return;
+    const valor=Math.round(_N(o.valor_labor));
+    (o.cuarteles||[]).forEach(x=>{
+      const c=reg(o.contratista,o.labor,x.cuartel,valor);
+      if(!c) return;
+      c.ordenes.push({n_orden:o.n_orden, valor_unitario:valor,
+        fecha:_fechaISO(o.fecha_emision||o.fecha_inicio||""), plantas:x.plantas,
+        total:Math.round((x.plantas||0)*(o.costo_empresa||0))});
+    });
+  });
+  return Object.values(combos).map(c=>{
+    const estado=_clasificarCuartel(c.pagos,c.pendientes,c.ordenes);
+    const fecha_ref = [...c.pendientes.map(p=>p.trabajo_fin), ...c.ordenes.map(o=>o.fecha),
+                       ...c.pagos.map(p=>p.fecha_factura)].filter(Boolean).sort().pop() || "";
+    const plantas = Math.max(
+      c.pendientes.reduce((s,p)=>s+(Number(p.plantas)||0),0),
+      c.pagos.reduce((s,p)=>s+(Number(p.plantas)||0),0),
+      c.ordenes.reduce((s,o)=>s+(Number(o.plantas)||0),0)
+    );
+    return {...c, estado, fecha_ref, plantas};
+  }).filter(c=>c.estado);   // fuera los "sin hacer" (no aportan nada a esta vista)
+}
+
+// Lleva al formulario de arriba con contratista+labor+cuartel+valor pre-cargados,
+// listo para revisar y agregar más cuarteles antes de emitir.
+function otIrAFormulario(contratista,labor,cuartel,valor){
+  const selC=document.getElementById("otContratista"), selL=document.getElementById("otLabor");
+  if(selC){
+    if(![...selC.options].some(o=>o.value===contratista)){
+      const op=document.createElement("option"); op.value=contratista; op.textContent=contratista;
+      selC.insertBefore(op, selC.lastChild);   // antes de "+ Agregar contratista nuevo…"
+    }
+    selC.value=contratista;
+  }
+  if(selL){
+    if(![...selL.options].some(o=>o.value===labor)){
+      const op=document.createElement("option"); op.value=labor; op.textContent=labor;
+      selL.appendChild(op);
+    }
+    selL.value=labor;
+  }
+  otFilasCuarteles();
+  const primerSel=document.querySelector("#otCuarteles .otCua");
+  if(primerSel){ primerSel.value=cuartel; primerSel.dispatchEvent(new Event("change")); }
+  const inpValor=document.getElementById("otValor");
+  if(inpValor && valor) inpValor.value=valor;
+  otRecalcular(); otPintarPagados();
+  document.getElementById("otFormulario")?.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+// Dibuja el panel de "pendientes de pago" con sus filtros de color
+function drawResumenGlobal(){
+  const cont=document.getElementById("otResumenGlobal"); if(!cont) return;
+  const todas=otResumenGlobal();
+  const contar=e=>todas.filter(f=>f.estado===e).length;
+  const filtro=OT_FILTRO_RESUMEN;
+  const filas=(filtro==="todos"?todas:todas.filter(f=>f.estado===filtro))
+    .sort((a,b)=>{
+      if(!a.fecha_ref && !b.fecha_ref) return 0;
+      if(!a.fecha_ref) return 1; if(!b.fecha_ref) return -1;
+      return a.fecha_ref.localeCompare(b.fecha_ref);   // más antiguo primero
+    });
+
+  const chip=(key,label,colorOn)=>{
+    const on=filtro===key;
+    return `<button class="orFiltro" data-f="${key}" style="border:1px solid ${on?colorOn:"var(--linea)"};
+      background:${on?colorOn:"#fff"};color:${on?"#fff":"var(--gris)"};font-family:inherit;font-size:12px;font-weight:600;
+      padding:6px 13px;border-radius:20px;cursor:pointer">${label} (${contar(key)})</button>`;
+  };
+
+  let html=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    ${chip("pendiente","🟠 Pendiente de orden","var(--naranja)")}
+    ${chip("tramite","🔵 Esperando pago","var(--tramite)")}
+    ${chip("pagado","🟢 Pagado","var(--verde)")}
+    <button class="orFiltro" data-f="todos" style="border:1px solid ${filtro==="todos"?"var(--tinta)":"var(--linea)"};
+      background:${filtro==="todos"?"var(--tinta)":"#fff"};color:${filtro==="todos"?"#fff":"var(--gris)"};font-family:inherit;
+      font-size:12px;font-weight:600;padding:6px 13px;border-radius:20px;cursor:pointer">Todos (${todas.length})</button>
+  </div>`;
+
+  if(!PAGOS_FACT.length){
+    html+=`<div style="font-size:12.5px;color:var(--gris);padding:10px 0">Importa primero el archivo de Liliana arriba para ver este resumen.</div>`;
+  }else if(!filas.length){
+    html+=`<div style="font-size:12.5px;color:var(--gris);padding:10px 0">Nada en este estado por ahora — buen trabajo. ✓</div>`;
+  }else{
+    html+=`<div style="max-height:380px;overflow-y:auto;border:1px solid var(--linea);border-radius:10px">`
+      + filas.map((f,i)=>{
+        const color=_colorClasificacion(f.estado);
+        const dias=_diasDesde(f.fecha_ref);
+        const antig = dias==null?"—" : dias<=0?"hoy" : dias===1?"hace 1 día" : `hace ${dias} días`;
+        return `<div class="orRow" data-i="${i}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;
+          border-bottom:1px solid var(--linea);cursor:pointer">
+          <span style="width:9px;height:9px;border-radius:3px;background:${color};flex-shrink:0"></span>
+          <span style="font-weight:700;width:38px;flex-shrink:0">${f.cuartel}</span>
+          <span style="flex:1.3;min-width:110px;font-size:12.5px">${f.contratista}</span>
+          <span style="flex:1.3;min-width:110px;font-size:12.5px;color:var(--gris)">${f.labor}</span>
+          <span style="width:76px;text-align:right;font-size:12.5px;flex-shrink:0">${money(f.valor)}/pl</span>
+          <span style="width:62px;text-align:right;font-size:11.5px;color:var(--gris);flex-shrink:0">${num(Math.round(f.plantas))} pl</span>
+          <span style="width:92px;text-align:right;font-size:11px;color:var(--gris);flex-shrink:0">${antig}</span>
+        </div>`;
+      }).join("")
+      + `</div>`;
+  }
+  cont.innerHTML=html;
+  cont.querySelectorAll(".orFiltro").forEach(b=>b.addEventListener("click",()=>{
+    OT_FILTRO_RESUMEN=b.dataset.f; drawResumenGlobal();
+  }));
+  cont.querySelectorAll(".orRow").forEach(r=>r.addEventListener("click",()=>{
+    const f=filas[+r.dataset.i];
+    if(f) otIrAFormulario(f.contratista,f.labor,f.cuartel,f.valor);
+  }));
+}
+
+// ============================================================
+//  RESUMEN GLOBAL — fin
+// ============================================================
+
 // Contratistas agregados a mano (para uno nuevo que todavía no aparece en ningún archivo)
 function otContratistasManual(){
   try{ return JSON.parse(localStorage.getItem("contratistas_manual")||"[]"); }catch(e){ return []; }
@@ -2816,7 +2973,7 @@ async function anularOrden(nOrden){
       return;
     }
     await cargarOrdenes();   // refrescar desde la base para que el correlativo quede correcto
-    otHistorial(); otRecalcular(); otPintarPagados();
+    otHistorial(); otRecalcular(); otPintarPagados(); drawResumenGlobal();
   }catch(e){ alert("No se pudo anular: "+(e.message||e)); }
 }
 
@@ -2944,6 +3101,7 @@ function drawOrdenes(){
   otHistorial();
   otPagosEstado();
   otPintarPagados();
+  drawResumenGlobal();
   // el formulario de creación solo para quien puede emitir (Admin y Gerencia)
   const form=document.getElementById("otFormulario");
   if(form) form.style.display = otPuedeEmitir() ? "block" : "none";
@@ -3049,7 +3207,7 @@ if(_otGenerar) _otGenerar.addEventListener("click",async()=>{
 
     await cargarOrdenes();          // recargar historial y correlativo desde la base
     msg.innerHTML=`<span style="color:var(--verde);font-weight:600">✓ Orden N° ${orden.n_orden} guardada. Abriendo impresión...</span>`;
-    otHistorial(); otRecalcular(); otPintarPagados();
+    otHistorial(); otRecalcular(); otPintarPagados(); drawResumenGlobal();
     setTimeout(()=>otImprimir(orden),400);
   }catch(e){
     msg.innerHTML=`<span style="color:var(--rojo);font-weight:600">No se pudo guardar: ${e.message||e}</span>`;
