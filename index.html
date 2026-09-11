@@ -2275,9 +2275,13 @@ function otOrdenesPorCuartel(contratista,labor){
   return map;
 }
 
-// Clasifica UN cuartel en uno de 4 estados, cruzando lo pagado, lo pendiente de
+// Clasifica UN cuartel en uno de 5 estados, cruzando lo pagado, lo pendiente de
 // facturar y las órdenes emitidas — todo por el mismo criterio: contratista+labor+
 // cuartel+VALOR UNITARIO exacto (así una orden a $180 nunca "cierra" una pasada a $50).
+//   "revisar"   → hay un folio pendiente al MISMO precio que uno que ya está pagado en
+//                 este mismo cuartel+labor+contratista: probable folio rezagado del mismo
+//                 lote (Liliana no siempre aprueba todos los ligados juntos) — riesgo de
+//                 pagarlo dos veces si se genera una orden nueva sin revisar antes
 //   "pagado"    → esa pasada ya tiene fecha de factura en el archivo de Liliana
 //   "tramite"   → hay una orden emitida a ese precio, pero todavía sin factura
 //   "pendiente" → hay trabajo hecho a ese precio y NINGUNA orden lo cubre todavía
@@ -2287,6 +2291,10 @@ function _clasificarCuartel(pagos, pendientes, ordenes){
   if(!pagos.length && !pendientes.length && !ordenes.length) return null;
   const vOrden = new Set(ordenes.map(o=>Math.round(_N(o.valor_unitario))));
   const vPagado = new Set(pagos.map(p=>Math.round(_N(p.valor_unitario))));
+  // ¿un folio pendiente al mismo precio que uno YA pagado aquí? → primero revisar,
+  // antes que cualquier otra cosa: es el caso del folio rezagado del mismo lote.
+  const riesgoDuplicado = pendientes.some(p=>vPagado.has(Math.round(_N(p.valor_unitario))));
+  if(riesgoDuplicado) return "revisar";
   // ¿algo pendiente de facturar SIN ninguna orden a ese mismo precio? → falta iniciar el trámite
   const sinOrden = pendientes.some(p=>!vOrden.has(Math.round(_N(p.valor_unitario))));
   if(sinOrden) return "pendiente";
@@ -2308,6 +2316,7 @@ function _colorClasificacion(estado){
   return estado==="pagado" ? "var(--verde)"
        : estado==="tramite" ? "var(--tramite)"
        : estado==="pendiente" ? "var(--naranja)"
+       : estado==="revisar" ? "var(--rojo)"
        : "#cfcfcf";
 }
 
@@ -2315,7 +2324,7 @@ function _colorClasificacion(estado){
 //  RESUMEN GLOBAL — todas las labores y contratistas de El Cerrillo a la vez
 //  (para no depender de que el usuario "se acuerde" de revisar una labor puntual)
 // ============================================================
-let OT_FILTRO_RESUMEN = "pendiente";   // qué color se muestra por defecto al entrar
+let OT_FILTRO_RESUMEN = "revisar";   // qué color se muestra por defecto al entrar — lo más urgente primero
 
 // Días de diferencia entre hoy y una fecha ISO (yyyy-mm-dd). null si no hay fecha.
 function _diasDesde(f){
@@ -2417,6 +2426,7 @@ function drawResumenGlobal(){
   };
 
   let html=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    ${chip("revisar","🔴 Revisar antes de pagar","var(--rojo)")}
     ${chip("pendiente","🟠 Pendiente de orden","var(--naranja)")}
     ${chip("tramite","🔵 Esperando pago","var(--tramite)")}
     ${chip("pagado","🟢 Pagado","var(--verde)")}
@@ -2424,6 +2434,12 @@ function drawResumenGlobal(){
       background:${filtro==="todos"?"var(--tinta)":"#fff"};color:${filtro==="todos"?"#fff":"var(--gris)"};font-family:inherit;
       font-size:12px;font-weight:600;padding:6px 13px;border-radius:20px;cursor:pointer">Todos (${todas.length})</button>
   </div>`;
+
+  if(filtro==="revisar" && contar("revisar")>0){
+    html+=`<div style="font-size:12px;font-weight:600;color:var(--rojo);background:var(--rojo-bg);border-radius:8px;padding:7px 10px;margin-bottom:10px">
+      ⚠️ Estos tienen un folio pendiente al mismo precio de uno ya pagado en el mismo cuartel — probable folio rezagado
+      del mismo lote. Confírmalo antes de generar una orden nueva: podrías estar pagando dos veces.</div>`;
+  }
 
   if(!PAGOS_FACT.length){
     html+=`<div style="font-size:12.5px;color:var(--gris);padding:10px 0">Importa primero el archivo de Liliana arriba para ver este resumen.</div>`;
@@ -2572,13 +2588,14 @@ function otMapaCuarteles(contr,labor,sel){
     pagado:   {bg:"var(--verde-bg)",   bd:"var(--verde)",   tx:"var(--verde)"},
     tramite:  {bg:"var(--tramite-bg)", bd:"var(--tramite)", tx:"var(--tramite)"},
     pendiente:{bg:"var(--naranja-bg)", bd:"var(--naranja)", tx:"#8a6100"},
+    revisar:  {bg:"var(--rojo-bg)",    bd:"var(--rojo)",    tx:"var(--rojo)"},
     sinhacer: {bg:"var(--crema)",      bd:"var(--linea)",   tx:"var(--gris)"}
   };
-  let nPag=0,nTramite=0,nPend=0,nSin=0;
+  let nPag=0,nTramite=0,nPend=0,nRevisar=0,nSin=0;
   const chips=todos.map(cu=>{
     const info=porCuartel[cu]||{pagos:[],pendientes:[],ordenes:[]};
     const est = _clasificarCuartel(info.pagos, info.pendientes, info.ordenes) || "sinhacer";
-    if(est==="pagado") nPag++; else if(est==="tramite") nTramite++; else if(est==="pendiente") nPend++; else nSin++;
+    if(est==="pagado") nPag++; else if(est==="tramite") nTramite++; else if(est==="pendiente") nPend++; else if(est==="revisar") nRevisar++; else nSin++;
     const e=ESTILO[est];
     const elegido=selUp.includes(cu);
     const sub = todosContr && quien[cu]
@@ -2606,7 +2623,10 @@ function otMapaCuarteles(contr,labor,sel){
         ${btn(todosContr,"Todos","otVerTodos")}
       </div>
     </div>
+    ${nRevisar?`<div style="font-size:11.5px;font-weight:700;color:var(--rojo);background:var(--rojo-bg);border-radius:7px;padding:6px 9px;margin-bottom:7px">
+      ⚠️ ${nRevisar} cuartel${nRevisar>1?"es":""} con un folio pendiente al mismo precio que uno ya pagado — revisa antes de generar una orden, podría ser el mismo lote.</div>`:""}
     <div style="font-size:11px;color:var(--gris);margin-bottom:8px">
+      ${punto("var(--rojo)",`Revisar antes de pagar (${nRevisar})`)}
       ${punto("var(--verde)",`Pagados y cerrados (${nPag})`)}
       ${punto("var(--tramite)",`Orden emitida, esperando pago (${nTramite})`)}
       ${punto("var(--naranja)",`Pendiente de generar orden (${nPend})`)}
@@ -2640,17 +2660,22 @@ function otChipsClickeables(){
     let cuerpo="", color="#cfcfcf";
 
     // una línea por PASADA (cada valor unitario distinto es una pasada)
-    const filaPasada=(p,todas,conNombre)=>{
+    // vPagadoSet: valores unitarios ya pagados en este mismo cuartel (para marcar
+    // en rojo un pendiente que coincide en precio con uno ya pagado — folio rezagado)
+    const filaPasada=(p,todas,conNombre,vPagadoSet)=>{
       const nom=_nombrePasada(todas,p);
       const etq=nom?`<span style="background:#fff;border:1px solid var(--linea);border-radius:5px;padding:0 5px;font-size:10.5px;margin-right:6px">${nom}</span>`:"";
       const quienTxt=conNombre?`<b>${p.contratista}</b> · `:"";
-      const sep=(etq||quienTxt)?"":"";
       const trabajo=p.trabajo_ini
         ? ` · trabajado ${p.trabajo_ini===p.trabajo_fin?_fechaLarga(p.trabajo_ini):_fechaCorta(p.trabajo_ini)+" al "+_fechaLarga(p.trabajo_fin)}` : "";
-      return p.fecha_factura
-        ? `<div style="margin-bottom:4px">${etq}${quienTxt}<b>${money(Math.round(p.valor_unitario))} /planta</b> ·
+      if(p.fecha_factura) return `<div style="margin-bottom:4px">${etq}${quienTxt}<b>${money(Math.round(p.valor_unitario))} /planta</b> ·
             <span style="color:var(--verde);font-weight:700">✓ pagado</span> el <b>${_fechaLarga(p.fecha_factura)}</b>
-            · factura ${p.n_factura||"s/n"} · ${num(Math.round(p.plantas||0))} plantas</div>`
+            · factura ${p.n_factura||"s/n"} · ${num(Math.round(p.plantas||0))} plantas</div>`;
+      const riesgo = vPagadoSet && vPagadoSet.has(Math.round(_N(p.valor_unitario)));
+      return riesgo
+        ? `<div style="margin-bottom:4px;background:var(--rojo-bg);border-radius:5px;padding:3px 6px">${etq}${quienTxt}<b>${money(Math.round(p.valor_unitario))} /planta</b> ·
+            <span style="color:var(--rojo);font-weight:700">⚠️ mismo precio ya pagado en este cuartel — revisar antes de pagar</span>
+            · ${num(Math.round(p.plantas||0))} plantas${trabajo}</div>`
         : `<div style="margin-bottom:4px">${etq}${quienTxt}<b>${money(Math.round(p.valor_unitario))} /planta</b> ·
             <span style="color:#8a6100;font-weight:700">⏳ sin facturar</span>
             · ${num(Math.round(p.plantas||0))} plantas${trabajo}</div>`;
@@ -2661,6 +2686,7 @@ function otChipsClickeables(){
       const pagos=(e&&e.pagos)||[], pend=(e&&e.pendientes)||[], ords=(e&&e.ordenes)||[];
       const pasadas=[...pagos,...pend];
       const estado=_clasificarCuartel(pagos,pend,ords);
+      const vPagadoSet=new Set(pagos.map(p=>Math.round(_N(p.valor_unitario))));
       if(!estado){
         cuerpo=`<div style="color:var(--gris);font-weight:700">Sin hacer</div>
           <div style="color:var(--gris)">Ningún contratista tiene orden ni trabajo para ${labor} en este cuartel.</div>`;
@@ -2671,7 +2697,7 @@ function otChipsClickeables(){
         pasadas.forEach(p=>{ const k=normGrupo(p.contratista); (porContr[k]=porContr[k]||[]).push(p); });
         cuerpo = Object.values(porContr).map(g=>
           g.sort((a,b)=>(Number(b.valor_unitario)||0)-(Number(a.valor_unitario)||0))
-           .map(p=>filaPasada(p,g,true)).join("")).join("")
+           .map(p=>filaPasada(p,g,true,vPagadoSet)).join("")).join("")
           + ords.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).map(o=>{
             const yaPagada=pagos.some(p=>Math.round(_N(p.valor_unitario))===Math.round(_N(o.valor_unitario)));
             const etq=yaPagada
@@ -2680,6 +2706,9 @@ function otChipsClickeables(){
             return `<div style="margin-bottom:4px"><b>${o.contratista}</b> · ${etq}${o.fecha?" del "+_fechaLarga(o.fecha):""}
               · ${num(Math.round(o.plantas||0))} plantas${o.total?" · "+money(o.total):""}</div>`;
           }).join("");
+        if(estado==="revisar") cuerpo=`<div style="color:var(--rojo);font-weight:700;font-size:11.5px;margin-bottom:5px">
+          ⚠️ Hay un folio pendiente al mismo precio que uno ya pagado aquí. Antes de generar una orden, confirma si es
+          un folio rezagado del mismo lote (Liliana no siempre aprueba todos los ligados juntos) — podría ser un pago duplicado.</div>` + cuerpo;
       }
     }else{
       const pasadas=otPasadasCuartel(contr,labor,cu);
@@ -2687,6 +2716,7 @@ function otChipsClickeables(){
       const pagos=pasadas.filter(p=>p.fecha_factura);
       const pend=pasadas.filter(p=>!p.fecha_factura);
       const estado=_clasificarCuartel(pagos,pend,ords);
+      const vPagadoSet=new Set(pagos.map(p=>Math.round(_N(p.valor_unitario))));
       if(!estado){
         cuerpo=`<div style="color:var(--gris)">No hay trabajo ni orden registrada para ${labor} en este cuartel.</div>`;
       }else{
@@ -2697,7 +2727,7 @@ function otChipsClickeables(){
             ? `<div style="font-weight:700;margin-bottom:3px">${pasadas.length} pasadas registradas</div>`
             : (pasadas.length>1
                ? `<div style="font-weight:700;margin-bottom:3px">Cobrado a ${pasadas.length} precios en la misma factura</div>` : ""))
-            + pasadas.map(p=>filaPasada(p,pasadas,false)).join("");
+            + pasadas.map(p=>filaPasada(p,pasadas,false,vPagadoSet)).join("");
         }
         if(ords.length) cuerpo += ords.slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).map(o=>{
           const yaPagada=pagos.some(p=>Math.round(_N(p.valor_unitario))===Math.round(_N(o.valor_unitario)));
@@ -2708,7 +2738,10 @@ function otChipsClickeables(){
             ${etq}${o.fecha?" emitida el "+_fechaLarga(o.fecha):""}
             · ${num(Math.round(o.plantas||0))} plantas${o.total?" · "+money(o.total):""}</div>`;
         }).join("");
-        if(estado==="pendiente") cuerpo+=`<div style="color:var(--gris);font-size:11px;margin-top:4px">
+        if(estado==="revisar") cuerpo=`<div style="color:var(--rojo);font-weight:700;font-size:11.5px;margin-bottom:5px">
+          ⚠️ Hay un folio pendiente al mismo precio que uno ya pagado aquí. Antes de generar una orden, confirma si
+          es un folio rezagado del mismo lote — podría ser un pago duplicado.</div>` + cuerpo;
+        else if(estado==="pendiente") cuerpo+=`<div style="color:var(--gris);font-size:11px;margin-top:4px">
           Hay trabajo hecho sin factura y sin orden emitida todavía: por eso está pendiente de generar orden.</div>`;
         else if(estado==="tramite") cuerpo+=`<div style="color:var(--gris);font-size:11px;margin-top:4px">
           Ya se emitió una orden para este trabajo: falta que Liliana registre la factura para cerrarlo.</div>`;
