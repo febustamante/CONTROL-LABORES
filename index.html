@@ -2324,7 +2324,7 @@ function _colorClasificacion(estado){
 //  RESUMEN GLOBAL — todas las labores y contratistas de El Cerrillo a la vez
 //  (para no depender de que el usuario "se acuerde" de revisar una labor puntual)
 // ============================================================
-let OT_FILTRO_RESUMEN = "revisar";   // qué color se muestra por defecto al entrar — lo más urgente primero
+let OT_FILTRO_RESUMEN = null;   // se decide solo la primera vez: rojo si hay algo, si no, ámbar
 
 // Días de diferencia entre hoy y una fecha ISO (yyyy-mm-dd). null si no hay fecha.
 function _diasDesde(f){
@@ -2410,6 +2410,7 @@ function drawResumenGlobal(){
   const cont=document.getElementById("otResumenGlobal"); if(!cont) return;
   const todas=otResumenGlobal();
   const contar=e=>todas.filter(f=>f.estado===e).length;
+  if(OT_FILTRO_RESUMEN===null) OT_FILTRO_RESUMEN = contar("revisar")>0 ? "revisar" : "pendiente";
   const filtro=OT_FILTRO_RESUMEN;
   const filas=(filtro==="todos"?todas:todas.filter(f=>f.estado===filtro))
     .sort((a,b)=>{
