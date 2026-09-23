@@ -2414,9 +2414,11 @@ function drawResumenGlobal(){
   const filtro=OT_FILTRO_RESUMEN;
   const filas=(filtro==="todos"?todas:todas.filter(f=>f.estado===filtro))
     .sort((a,b)=>{
+      const porLabor=a.labor.localeCompare(b.labor);
+      if(porLabor) return porLabor;   // agrupado por labor
       if(!a.fecha_ref && !b.fecha_ref) return 0;
       if(!a.fecha_ref) return 1; if(!b.fecha_ref) return -1;
-      return a.fecha_ref.localeCompare(b.fecha_ref);   // más antiguo primero
+      return a.fecha_ref.localeCompare(b.fecha_ref);   // dentro de la misma labor, más antiguo primero
     });
 
   const chip=(key,label,colorOn)=>{
