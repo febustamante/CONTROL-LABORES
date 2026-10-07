@@ -2124,7 +2124,6 @@ function otLeerPagos(rows){
     leidas++;
     if(normGrupo(r["GRUPO CENTRO COSTO"])!==CAMPO_PAGOS) return;   // solo El Cerrillo
     if(_esPropio(r["CONTRATISTA"])) return;                        // sin Agrícola San José
-    if(_up(r["TRATO/DIA"])!=="TRATO") return;                      // solo TRATO: el Diario no se paga por planta
     cerrillo++;
 
     const valor=Math.round(_N(r["VALOR UNITARIO"]));
