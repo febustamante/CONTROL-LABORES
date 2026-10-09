@@ -302,12 +302,18 @@ footer b{color:var(--burdeo)}
 
   <div id="zonaCarga" style="display:none;background:#FBF5EC;border:1px solid var(--dorado);border-radius:14px;padding:18px 20px;margin-bottom:20px">
     <h2 style="border:0;margin:0 0 4px;font-size:17px">Cargar folios del día <span style="font-size:12px;color:var(--gris);font-weight:400">(solo admin)</span></h2>
-    <p class="hint" style="margin:0 0 12px">Arrastra los dos Excel. Se calcula todo y se muestra un resumen antes de guardar. Los preliminares ya aprobados y los anulados se respetan.</p>
+    <p class="hint" style="margin:0 0 12px">Arrastra los Excel. Se calcula todo y se muestra un resumen antes de guardar. Los preliminares ya aprobados y los anulados se respetan. <b>Liliana 2 solo SUMA</b>: no anula ningún aprobado ni borra pagos anteriores.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap">
       <label class="cargaDrop" id="dropLil" style="flex:1;min-width:200px;border:2px dashed var(--dorado);border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fff">
         <div style="font-weight:600;font-size:13px">📗 Aprobados (Liliana)</div>
         <div style="font-size:11px;color:var(--gris);margin-top:3px" id="sLil">Ningún archivo</div>
         <input type="file" id="fLil" accept=".xlsx,.xls" style="display:none">
+      </label>
+      <label class="cargaDrop" id="dropLil2" style="flex:1;min-width:200px;border:2px dashed var(--dorado);border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fff">
+        <div style="font-weight:600;font-size:13px">📗 Aprobados (Liliana 2)</div>
+        <div style="font-size:10.5px;color:var(--verde);font-weight:600;margin-top:2px">se SUMAN · no anula nada</div>
+        <div style="font-size:11px;color:var(--gris);margin-top:3px" id="sLil2">Ningún archivo</div>
+        <input type="file" id="fLil2" accept=".xlsx,.xls" style="display:none">
       </label>
       <label class="cargaDrop" id="dropRep" style="flex:1;min-width:200px;border:2px dashed var(--dorado);border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fff">
         <div style="font-weight:600;font-size:13px">📘 Reporte del día</div>
@@ -315,7 +321,7 @@ footer b{color:var(--burdeo)}
         <input type="file" id="fRep" accept=".xlsx,.xls" style="display:none">
       </label>
     </div>
-    <button id="analizar" disabled style="width:100%;border:0;background:var(--burdeo);color:#fff;font-family:inherit;font-weight:700;font-size:14px;padding:12px;border-radius:10px;cursor:pointer;margin-top:12px">Analizar los dos archivos</button>
+    <button id="analizar" disabled style="width:100%;border:0;background:var(--burdeo);color:#fff;font-family:inherit;font-weight:700;font-size:14px;padding:12px;border-radius:10px;cursor:pointer;margin-top:12px">Analizar los archivos</button>
     <div id="cargaResumen"></div>
     <div id="cargaLog" style="margin-top:10px;font-size:12.5px"></div>
   </div>
@@ -707,6 +713,10 @@ document.addEventListener("keydown", e=>{
 
 const money = n => "$"+n.toLocaleString("es-CL");
 const num = n => n.toLocaleString("es-CL");
+// Cantidad para mostrar: enteros con separador de miles; si trae decimales (p. ej. fracciones
+// de jornada en las labores DIARIO) se muestran hasta 2, en vez de redondear a 0.
+const cant_ = n => { const r = Math.round((Number(n)||0)*100)/100;
+  return Number.isInteger(r) ? r.toLocaleString("es-CL") : r.toLocaleString("es-CL",{minimumFractionDigits:1,maximumFractionDigits:2}); };
 
 function alerta(f){
   if(f.estado!=="PRELIMINAR") return {cls:"a-ok",txt:"Aprobado"};
@@ -1564,7 +1574,7 @@ document.getElementById("limpiarFiltros").addEventListener("click",()=>{
 // ============================================================
 //  ZONA DE CARGA (solo admin) — leer Excel y escribir a Supabase
 // ============================================================
-let wbLil=null, wbRep=null, paraCargar=null;
+let wbLil=null, wbRep=null, wbLil2=null, paraCargar=null;
 const _S=v=>v==null?'':String(v).trim();
 const _N=v=>{const x=parseFloat(v);return isNaN(x)?0:x;};
 const _up=s=>_S(s).toUpperCase();
@@ -1596,7 +1606,7 @@ function _bind(dropId,inputId,sId,cb){
   const handle=file=>{const r=new FileReader();r.onload=e=>{try{
     const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
     cb(wb);drop.style.borderStyle='solid';drop.style.borderColor='var(--verde)';s.textContent='✓ '+file.name;s.style.color='var(--verde)';
-    document.getElementById('analizar').disabled=!(wbLil||wbRep);
+    document.getElementById('analizar').disabled=!(wbLil||wbRep||wbLil2);
   }catch(err){s.textContent='Error: '+err.message;}};r.readAsArrayBuffer(file);};
   inp.addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0]);});
   ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.background='var(--dorado-cl)';}));
@@ -1605,6 +1615,7 @@ function _bind(dropId,inputId,sId,cb){
 }
 _bind('dropLil','fLil','sLil',wb=>wbLil=wb);
 _bind('dropRep','fRep','sRep',wb=>wbRep=wb);
+_bind('dropLil2','fLil2','sLil2',wb=>wbLil2=wb);
 
 // Temporada: mayo a abril del año siguiente. Ej: fecha en jun-2026 → "2026-2027"
 function _temporada(fecha){
@@ -1817,9 +1828,12 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   const colsRep={folio:'Número de registro',cuartel:'Centro Costo',labor:'Labor',grupo:'Grupo Centro Costo',fecha:'Fecha de Creación'};
   const rowsLil = wbLil ? _sheet(wbLil,['Datos']) : null;
   const rowsRep = wbRep ? _sheet(wbRep,['Data']) : null;
+  const rowsLil2 = wbLil2 ? _sheet(wbLil2,['Datos']) : null;   // Liliana 2: solo SUMA
   if(rowsLil) validar(rowsLil,'Liliana',colsLil);
+  if(rowsLil2) validar(rowsLil2,'Liliana 2',colsLil);
   if(rowsRep) validar(rowsRep,'Reporte',colsRep);
-  if(!rowsLil) add('gris','• Sin archivo de Liliana: no se cargarán aprobados en esta carga.');
+  if(!rowsLil && !rowsLil2) add('gris','• Sin archivo de Liliana: no se cargarán aprobados en esta carga.');
+  if(rowsLil2 && !rowsLil) add('verde','✓ Solo Liliana 2: sus aprobados se SUMAN. No se anula ningún aprobado y no se borran pagos anteriores.');
   if(!rowsRep) add('gris','• Sin archivo de reporte: no se agregarán preliminares en esta carga.');
 
   // mostrar errores y avisos
@@ -1837,13 +1851,18 @@ if(_analizar) _analizar.addEventListener("click",()=>{
 
   // procesar (para el resumen) — solo lo que esté presente
   const lil = rowsLil ? _procLil(rowsLil) : [];
+  const lil2 = rowsLil2 ? _procLil(rowsLil2) : [];
   const rep = rowsRep ? _procRep(rowsRep) : [];
   const foliosLil=new Set(lil.map(f=>f.folio_pk));
-  const prelim=rep.filter(f=>f.estado==='PRELIMINAR'&&!foliosLil.has(f.folio_pk));
-  const aprobRep=rep.filter(f=>f.estado==='APROBADO'&&!foliosLil.has(f.folio_pk));
-  paraCargar={aprobados:[...lil,...aprobRep],preliminares:prelim,anular:[]};
+  const numerosFolioLil = new Set(lil.map(f=>f.folio));
+  const lil2Solo = lil2.filter(f=>!numerosFolioLil.has(f.folio));       // si un folio viene en las dos, manda Liliana (completo)
+  const foliosLilAll=new Set([...foliosLil, ...lil2Solo.map(f=>f.folio_pk)]);
+  const prelim=rep.filter(f=>f.estado==='PRELIMINAR'&&!foliosLilAll.has(f.folio_pk));
+  const aprobRep=rep.filter(f=>f.estado==='APROBADO'&&!foliosLilAll.has(f.folio_pk));
+  paraCargar={aprobados:[...lil,...lil2Solo,...aprobRep],preliminares:prelim,anular:[]};
   // detalle línea por línea (para folios_detalle: comparar cambios tras aprobar)
-  paraCargar.detalleLil = rowsLil ? _detalleLil(rowsLil) : [];
+  paraCargar.detalleLil = [ ...(rowsLil ? _detalleLil(rowsLil) : []),
+    ...(rowsLil2 ? _detalleLil(rowsLil2).filter(d=>!numerosFolioLil.has(d.folio)) : []) ];
   paraCargar.detalleRep = rowsRep ? _detalleRep(rowsRep) : [];
   // pagos ya facturados (columna FECHA FACTURA) — sale del mismo archivo de Liliana
   paraCargar.pagos = null;
@@ -1855,6 +1874,15 @@ if(_analizar) _analizar.addEventListener("click",()=>{
       add('verde',`✓ Pagos facturados: ${num(lista.length)} combinaciones cuartel + labor ya pagadas en El Cerrillo (${cs} contratista(s)). Se usarán en Órdenes de trabajo para no pagar dos veces.`);
     }catch(e){ avisos.push('Pagos facturados: no se pudo leer la columna FECHA FACTURA ('+(e.message||e)+').'); }
   }
+  // pagos de Liliana 2: se SUMAN a los ya guardados (no reemplazan)
+  paraCargar.pagos2 = null;
+  if(rowsLil2){
+    try{
+      const {lista}=otLeerPagos(rowsLil2);
+      paraCargar.pagos2 = lista;
+      add('verde',`✓ Liliana 2: ${num(lista.length)} combinaciones de pagos que se SUMAN a las ya guardadas.`);
+    }catch(e){ avisos.push('Liliana 2: no se pudo leer la columna FECHA FACTURA ('+(e.message||e)+').'); }
+  }
   const pAp=paraCargar.aprobados.reduce((s,f)=>s+f.plantas,0);
   const pPr=prelim.reduce((s,f)=>s+f.plantas,0);
 
@@ -1863,10 +1891,11 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   let aAnular=[];
   if(rowsLil){
     // números de folio que SÍ vienen en esta carga de Liliana
-    const numerosLil=new Set([...foliosLil].map(pk=>pk.split('|')[0]));
+    // (Liliana 2 NO anula nada por sí sola; si viene junto con Liliana, sus folios cuentan como "presentes")
+    const numerosLil=new Set([...foliosLilAll].map(pk=>pk.split('|')[0]));
     aAnular = FOLIOS_ALL.filter(f=>{
       if(f.estado!=='APROBADO') return false;
-      if(foliosLil.has(f.folio_pk)) return false;   // sigue estando igual: no tocar
+      if(foliosLilAll.has(f.folio_pk)) return false;   // sigue estando igual: no tocar
       // Folios normales: se anulan si ya no vienen (comportamiento de siempre).
       // Folios "-A": se anulan SOLO si su número de folio SÍ viene en esta carga
       // (o sea, Liliana lo está cargando y esa parte ya no existe → fue corregida).
@@ -1901,7 +1930,8 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   }
   document.getElementById('cargaResumen').innerHTML=
     `<div style="background:${bloqueado?'var(--rojo-bg)':'var(--verde-bg)'};border:1px solid ${bloqueado?'var(--rojo)':'var(--verde)'};border-radius:10px;padding:14px;margin-top:12px;font-size:13px">
-     ${rowsLil?`<b>${paraCargar.aprobados.length}</b> aprobados (reemplazan) · ${pAp.toLocaleString('es-CL')} plantas<br>`:''}
+     ${rowsLil?`<b>${lil.length+aprobRep.length}</b> aprobados (reemplazan) · ${(lil.concat(aprobRep)).reduce((s,f)=>s+f.plantas,0).toLocaleString('es-CL')} plantas<br>`:''}
+     ${rowsLil2?`<b>${lil2Solo.length}</b> aprobados de Liliana 2 (<b>se suman</b>, no anulan nada) · ${lil2Solo.reduce((s,f)=>s+f.plantas,0).toLocaleString('es-CL')} plantas<br>`:''}
      ${rowsRep?`<b>${prelim.length}</b> preliminares del reporte · ${pPr.toLocaleString('es-CL')} plantas<br>`:''}
      <span style="font-size:11px;color:var(--gris)">Los preliminares ya aprobados o anulados se respetan.</span>
      ${bloqueado
@@ -2050,6 +2080,13 @@ async function _cargar(){
         res.nube ? `✓ ${num(paraCargar.pagos.length)} pagos facturados guardados (Órdenes de trabajo ya avisa cuáles cuarteles no repetir).`
                  : `Pagos facturados guardados solo en este navegador (${res.msg}). Corre tabla_pagos_facturados.sql en Supabase para que Sergio y Rodrigo también los vean.`);
     }
+    // pagos de Liliana 2: se SUMAN (no borran los ya guardados)
+    if(paraCargar.pagos2 && paraCargar.pagos2.length){
+      const res2=await otGuardarPagos(paraCargar.pagos2,{sumar:true});
+      add(res2.nube?'verde':'naranja',
+        res2.nube ? `✓ ${num(paraCargar.pagos2.length)} pagos de Liliana 2 sumados (los anteriores se conservan).`
+                  : `Pagos de Liliana 2 guardados solo en este navegador (${res2.msg}).`);
+    }
     setTimeout(async()=>{ await cargarDatos();
       FOLIOS = usuarioActual.grupos ? FOLIOS_ALL.filter(f=>usuarioActual.grupos.includes((f.grupo||"").toUpperCase())) : FOLIOS_ALL;
       render(); btn.textContent='✓ Cargado';
@@ -2164,19 +2201,33 @@ function otLeerPagos(rows){
 }
 
 // Guarda en Supabase (reemplaza todo: el archivo de Liliana es la fuente de verdad)
-async function otGuardarPagos(lista){
+// opc.sumar=true (Liliana 2): se SUMAN a lo ya guardado; solo se reemplazan las pasadas con la
+// misma clave. No se borra nada más. Sin ese modo (Liliana): se reemplaza todo, como siempre.
+async function otGuardarPagos(lista,opc){
+  const sumar=!!(opc&&opc.sumar);
   const hoy=_fmt(new Date());
-  const filas=lista.map(p=>({...p, actualizado:hoy}));
+  const nuevas=lista.map(p=>({...p, actualizado:hoy}));
+  const clavesNuevas=new Set(nuevas.map(p=>p.clave));
+  const filas = sumar ? (PAGOS_FACT||[]).filter(p=>!clavesNuevas.has(p.clave)).concat(nuevas) : nuevas;
   PAGOS_FACT=filas;
   PAGOS_INFO={fecha:hoy, filas:filas.length, origen:"local"};
   // copia local siempre (para que funcione aunque falle la nube)
   try{ localStorage.setItem("pagos_facturados",JSON.stringify({filas,info:PAGOS_INFO})); }catch(e){}
   // y a la nube, para que Sergio y Rodrigo también lo vean
   try{
-    const {error:e1}=await sb.from("pagos_facturados").delete().neq("clave","___");
-    if(e1) throw e1;
-    for(let i=0;i<filas.length;i+=400){
-      const {error:e2}=await sb.from("pagos_facturados").insert(filas.slice(i,i+400));
+    if(sumar){
+      const claves=[...clavesNuevas];
+      for(let i=0;i<claves.length;i+=200){
+        const {error:e0}=await sb.from("pagos_facturados").delete().in("clave",claves.slice(i,i+200));
+        if(e0) throw e0;
+      }
+    }else{
+      const {error:e1}=await sb.from("pagos_facturados").delete().neq("clave","___");
+      if(e1) throw e1;
+    }
+    const aInsertar = sumar ? nuevas : filas;
+    for(let i=0;i<aInsertar.length;i+=400){
+      const {error:e2}=await sb.from("pagos_facturados").insert(aInsertar.slice(i,i+400));
       if(e2) throw e2;
     }
     PAGOS_INFO.origen="nube";
@@ -2461,7 +2512,7 @@ function drawResumenGlobal(){
           <span style="flex:1.3;min-width:110px;font-size:12.5px">${f.contratista}</span>
           <span style="flex:1.3;min-width:110px;font-size:12.5px;color:var(--gris)">${f.labor}</span>
           <span style="width:76px;text-align:right;font-size:12.5px;flex-shrink:0">${money(f.valor)}/pl</span>
-          <span style="width:62px;text-align:right;font-size:11.5px;color:var(--gris);flex-shrink:0">${num(Math.round(f.plantas))} pl</span>
+          <span style="width:62px;text-align:right;font-size:11.5px;color:var(--gris);flex-shrink:0">${cant_(f.plantas)} pl</span>
           <span style="width:92px;text-align:right;font-size:11px;color:var(--gris);flex-shrink:0">${antig}</span>
         </div>`;
       }).join("")
@@ -2673,15 +2724,15 @@ function otChipsClickeables(){
         ? ` · trabajado ${p.trabajo_ini===p.trabajo_fin?_fechaLarga(p.trabajo_ini):_fechaCorta(p.trabajo_ini)+" al "+_fechaLarga(p.trabajo_fin)}` : "";
       if(p.fecha_factura) return `<div style="margin-bottom:4px">${etq}${quienTxt}<b>${money(Math.round(p.valor_unitario))} /planta</b> ·
             <span style="color:var(--verde);font-weight:700">✓ pagado</span> el <b>${_fechaLarga(p.fecha_factura)}</b>
-            · factura ${p.n_factura||"s/n"} · ${num(Math.round(p.plantas||0))} plantas</div>`;
+            · factura ${p.n_factura||"s/n"} · ${cant_(p.plantas||0)} plantas</div>`;
       const riesgo = vPagadoSet && vPagadoSet.has(Math.round(_N(p.valor_unitario)));
       return riesgo
         ? `<div style="margin-bottom:4px;background:var(--rojo-bg);border-radius:5px;padding:3px 6px">${etq}${quienTxt}<b>${money(Math.round(p.valor_unitario))} /planta</b> ·
             <span style="color:var(--rojo);font-weight:700">⚠️ mismo precio ya pagado en este cuartel — revisar antes de pagar</span>
-            · ${num(Math.round(p.plantas||0))} plantas${trabajo}</div>`
+            · ${cant_(p.plantas||0)} plantas${trabajo}</div>`
         : `<div style="margin-bottom:4px">${etq}${quienTxt}<b>${money(Math.round(p.valor_unitario))} /planta</b> ·
             <span style="color:#8a6100;font-weight:700">⏳ sin facturar</span>
-            · ${num(Math.round(p.plantas||0))} plantas${trabajo}</div>`;
+            · ${cant_(p.plantas||0)} plantas${trabajo}</div>`;
     };
 
     if(OT_VISTA_TODOS){
