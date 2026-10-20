@@ -1574,6 +1574,9 @@ document.getElementById("limpiarFiltros").addEventListener("click",()=>{
 // ============================================================
 //  ZONA DE CARGA (solo admin) — leer Excel y escribir a Supabase
 // ============================================================
+// LILIANA PRINCIPAL = archivo estático. Llega hasta esta fecha y NADA de lo anterior se anula ni se modifica
+// al cargar Liliana 2. Solo lo posterior a esta fecha (lo que viene de Liliana 2) puede corregirse.
+const LILIANA_PRINCIPAL_HASTA='2026-09-27';
 let wbLil=null, wbRep=null, wbLil2=null, paraCargar=null;
 const _S=v=>v==null?'':String(v).trim();
 const _N=v=>{const x=parseFloat(v);return isNaN(x)?0:x;};
@@ -1833,7 +1836,7 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   if(rowsLil2) validar(rowsLil2,'Liliana 2',colsLil);
   if(rowsRep) validar(rowsRep,'Reporte',colsRep);
   if(!rowsLil && !rowsLil2) add('gris','• Sin archivo de Liliana: no se cargarán aprobados en esta carga.');
-  if(rowsLil2 && !rowsLil) add('verde','✓ Solo Liliana 2: sus aprobados se SUMAN y no se borran pagos anteriores. No se anula nada de los folios que no vienen en el archivo; si un folio viene con cuartel o labor corregidos, se reemplaza su fila vieja (te la muestro antes de confirmar).');
+  if(rowsLil2 && !rowsLil) add('verde','✓ Solo Liliana 2: sus aprobados se SUMAN y no se borran pagos anteriores. Lo de la Liliana principal (hasta el '+LILIANA_PRINCIPAL_HASTA.split('-').reverse().join('-')+') queda estático y no se toca. Si un folio de Liliana 2 viene con cuartel o labor corregidos, se reemplaza su fila vieja (te la muestro antes de confirmar; queda como ANULADO, no se borra).');
   if(!rowsRep) add('gris','• Sin archivo de reporte: no se agregarán preliminares en esta carga.');
 
   // mostrar errores y avisos
@@ -1909,7 +1912,11 @@ if(_analizar) _analizar.addEventListener("click",()=>{
     // si un folio viene con otro cuartel o labor (corregido), su fila vieja se anula para que no quede duplicada.
     // Ejemplo real: el folio 7588 pasó de R04 a R03 y la fila vieja R04 seguía contando.
     const numerosL2=new Set(lil2Solo.map(f=>f.folio));
-    aAnular = FOLIOS_ALL.filter(f=> f.estado==='APROBADO' && numerosL2.has(f.folio) && !foliosLilAll.has(f.folio_pk));
+    const candidatos = FOLIOS_ALL.filter(f=> f.estado==='APROBADO' && numerosL2.has(f.folio) && !foliosLilAll.has(f.folio_pk));
+    // PROTECCIÓN: lo que es de la Liliana principal (fecha hasta LILIANA_PRINCIPAL_HASTA) no se toca nunca.
+    const esPrincipal = f => String(f.creado||'').slice(0,10) <= LILIANA_PRINCIPAL_HASTA;
+    aAnular = candidatos.filter(f=>!esPrincipal(f));
+    window.PROTEGIDOS_L2 = candidatos.filter(esPrincipal).length;
     paraCargar.anular = aAnular.map(f=>f.folio_pk);
   }
 
@@ -1938,7 +1945,7 @@ if(_analizar) _analizar.addEventListener("click",()=>{
   document.getElementById('cargaResumen').innerHTML=
     `<div style="background:${bloqueado?'var(--rojo-bg)':'var(--verde-bg)'};border:1px solid ${bloqueado?'var(--rojo)':'var(--verde)'};border-radius:10px;padding:14px;margin-top:12px;font-size:13px">
      ${rowsLil?`<b>${lil.length+aprobRep.length}</b> aprobados (reemplazan) · ${(lil.concat(aprobRep)).reduce((s,f)=>s+f.plantas,0).toLocaleString('es-CL')} plantas<br>`:''}
-     ${rowsLil2?`<b>${lil2Solo.length}</b> aprobados de Liliana 2 (<b>se suman</b>; solo reemplazan las filas viejas de sus propios folios) · ${lil2Solo.reduce((s,f)=>s+f.plantas,0).toLocaleString('es-CL')} plantas<br>`:''}
+     ${rowsLil2?`<b>${lil2Solo.length}</b> aprobados de Liliana 2 (<b>se suman</b>; solo corrigen las filas viejas de sus propios folios · la Liliana principal no se toca) · ${lil2Solo.reduce((s,f)=>s+f.plantas,0).toLocaleString('es-CL')} plantas${(!rowsLil && window.PROTEGIDOS_L2)?` · <span style="color:var(--verde)">${window.PROTEGIDOS_L2} fila(s) de la Liliana principal protegidas</span>`:''}<br>`:''}
      ${rowsRep?`<b>${prelim.length}</b> preliminares del reporte · ${pPr.toLocaleString('es-CL')} plantas<br>`:''}
      <span style="font-size:11px;color:var(--gris)">Los preliminares ya aprobados o anulados se respetan.</span>
      ${bloqueado
