@@ -2098,7 +2098,7 @@ async function _cargar(){
     if(paraCargar.pagos2 && paraCargar.pagos2.length){
       const res2=await otGuardarPagos(paraCargar.pagos2,{sumar:true});
       add(res2.nube?'verde':'naranja',
-        res2.nube ? `✓ ${num(paraCargar.pagos2.length)} pagos de Liliana 2 sumados (los anteriores se conservan).`
+        res2.nube ? `✓ ${num(paraCargar.pagos2.length)} pagos de Liliana 2 sumados (los anteriores se conservan).${res2.reemplazadas?` ${res2.reemplazadas} pendiente(s) viejo(s) reemplazado(s): era el mismo trabajo con otro precio.`:''}`
                   : `Pagos de Liliana 2 guardados solo en este navegador (${res2.msg}).`);
     }
     setTimeout(async()=>{ await cargarDatos();
@@ -2222,7 +2222,20 @@ async function otGuardarPagos(lista,opc){
   const hoy=_fmt(new Date());
   const nuevas=lista.map(p=>({...p, actualizado:hoy}));
   const clavesNuevas=new Set(nuevas.map(p=>p.clave));
-  const filas = sumar ? (PAGOS_FACT||[]).filter(p=>!clavesNuevas.has(p.clave)).concat(nuevas) : nuevas;
+  // LILIANA 2 (sumar): la clave incluye el PRECIO. Si el MISMO trabajo (contratista + labor + cuartel + fechas + líneas)
+  // llega con otro precio (ej.: $0 antes, $30.000 ahora), lo nuevo manda y reemplaza al pendiente viejo; si no, quedaba un
+  // "pendiente fantasma". Solo reemplaza pendientes (nunca pagados) y nunca lo de la Liliana principal (fecha <= LILIANA_PRINCIPAL_HASTA).
+  let reemplazadas=[];
+  if(sumar){
+    const dia=x=>String(x||'').slice(0,10);
+    const mismoTrabajo=(a,b)=> normGrupo(a.contratista)===normGrupo(b.contratista) && normLabor(a.labor)===normLabor(b.labor)
+      && String(a.cuartel||'').toUpperCase().trim()===String(b.cuartel||'').toUpperCase().trim()
+      && dia(a.trabajo_ini)===dia(b.trabajo_ini) && dia(a.trabajo_fin)===dia(b.trabajo_fin) && Number(a.lineas)===Number(b.lineas);
+    reemplazadas=(PAGOS_FACT||[]).filter(v=> !clavesNuevas.has(v.clave) && !v.fecha_factura
+      && dia(v.trabajo_ini)>LILIANA_PRINCIPAL_HASTA && nuevas.some(n=>mismoTrabajo(n,v)));
+  }
+  const clavesViejas=new Set(reemplazadas.map(v=>v.clave));
+  const filas = sumar ? (PAGOS_FACT||[]).filter(p=>!clavesNuevas.has(p.clave)&&!clavesViejas.has(p.clave)).concat(nuevas) : nuevas;
   PAGOS_FACT=filas;
   PAGOS_INFO={fecha:hoy, filas:filas.length, origen:"local"};
   // copia local siempre (para que funcione aunque falle la nube)
@@ -2230,7 +2243,7 @@ async function otGuardarPagos(lista,opc){
   // y a la nube, para que Sergio y Rodrigo también lo vean
   try{
     if(sumar){
-      const claves=[...clavesNuevas];
+      const claves=[...clavesNuevas, ...clavesViejas];
       for(let i=0;i<claves.length;i+=200){
         const {error:e0}=await sb.from("pagos_facturados").delete().in("clave",claves.slice(i,i+200));
         if(e0) throw e0;
@@ -2245,10 +2258,10 @@ async function otGuardarPagos(lista,opc){
       if(e2) throw e2;
     }
     PAGOS_INFO.origen="nube";
-    return {nube:true};
+    return {nube:true, reemplazadas:reemplazadas.length};
   }catch(e){
     console.warn("No se pudo guardar en la nube:",e.message||e);
-    return {nube:false, msg:e.message||String(e)};
+    return {nube:false, msg:e.message||String(e), reemplazadas:reemplazadas.length};
   }
 }
 
