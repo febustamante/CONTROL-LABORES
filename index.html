@@ -1918,6 +1918,8 @@ if(_analizar) _analizar.addEventListener("click",()=>{
     aAnular = candidatos.filter(f=>!esPrincipal(f));
     window.PROTEGIDOS_L2 = candidatos.filter(esPrincipal).length;
     paraCargar.anular = aAnular.map(f=>f.folio_pk);
+    // para limpiar también la PASADA pendiente vieja de esos folios (ej.: el desbrote pasó de C22 a C23)
+    paraCargar.anuladasInfo = aAnular.map(f=>({c:normGrupo(f.contratista), l:normLabor(f.labor), q:String(f.cuartel||'').toUpperCase().trim(), dia:String(f.creado||'').slice(0,10)}));
   }
 
   // Si hay errores rojos, NO se permite cargar (botón bloqueado)
@@ -2096,9 +2098,9 @@ async function _cargar(){
     }
     // pagos de Liliana 2: se SUMAN (no borran los ya guardados)
     if(paraCargar.pagos2 && paraCargar.pagos2.length){
-      const res2=await otGuardarPagos(paraCargar.pagos2,{sumar:true});
+      const res2=await otGuardarPagos(paraCargar.pagos2,{sumar:true, anuladas:paraCargar.anuladasInfo});
       add(res2.nube?'verde':'naranja',
-        res2.nube ? `✓ ${num(paraCargar.pagos2.length)} pagos de Liliana 2 sumados (los anteriores se conservan).${res2.reemplazadas?` ${res2.reemplazadas} pendiente(s) viejo(s) reemplazado(s): era el mismo trabajo con otro precio.`:''}`
+        res2.nube ? `✓ ${num(paraCargar.pagos2.length)} pagos de Liliana 2 sumados (los anteriores se conservan).${res2.reemplazadas?` ${res2.reemplazadas} pendiente(s) viejo(s) reemplazado(s): era el mismo trabajo con otro precio.`:''}${res2.huerfanas?` ${res2.huerfanas} pendiente(s) viejo(s) quitado(s): su folio cambió de cuartel.`:''}`
                   : `Pagos de Liliana 2 guardados solo en este navegador (${res2.msg}).`);
     }
     setTimeout(async()=>{ await cargarDatos();
@@ -2222,19 +2224,30 @@ async function otGuardarPagos(lista,opc){
   const hoy=_fmt(new Date());
   const nuevas=lista.map(p=>({...p, actualizado:hoy}));
   const clavesNuevas=new Set(nuevas.map(p=>p.clave));
-  // LILIANA 2 (sumar): la clave incluye el PRECIO. Si el MISMO trabajo (contratista + labor + cuartel + fechas + líneas)
-  // llega con otro precio (ej.: $0 antes, $30.000 ahora), lo nuevo manda y reemplaza al pendiente viejo; si no, quedaba un
+  // LILIANA 2 (sumar): la clave incluye el PRECIO. Si el MISMO trabajo (contratista + labor + cuartel, con fechas que se pisan)
+  // llega con otro precio (ej.: $0 antes, $30.000 ahora) y el precio viejo ya no existe en el archivo, lo nuevo manda y reemplaza
+  // al pendiente viejo, aunque hayan cambiado también las líneas; si no, quedaba un
   // "pendiente fantasma". Solo reemplaza pendientes (nunca pagados) y nunca lo de la Liliana principal (fecha <= LILIANA_PRINCIPAL_HASTA).
-  let reemplazadas=[];
+  let reemplazadas=[], huerfanas=[];
   if(sumar){
     const dia=x=>String(x||'').slice(0,10);
     const mismoTrabajo=(a,b)=> normGrupo(a.contratista)===normGrupo(b.contratista) && normLabor(a.labor)===normLabor(b.labor)
       && String(a.cuartel||'').toUpperCase().trim()===String(b.cuartel||'').toUpperCase().trim()
-      && dia(a.trabajo_ini)===dia(b.trabajo_ini) && dia(a.trabajo_fin)===dia(b.trabajo_fin) && Number(a.lineas)===Number(b.lineas);
+      && dia(a.trabajo_ini)<=dia(b.trabajo_fin) && dia(a.trabajo_fin)>=dia(b.trabajo_ini);   // mismas fechas (se pisan), aunque cambien las líneas
     reemplazadas=(PAGOS_FACT||[]).filter(v=> !clavesNuevas.has(v.clave) && !v.fecha_factura
       && dia(v.trabajo_ini)>LILIANA_PRINCIPAL_HASTA && nuevas.some(n=>mismoTrabajo(n,v)));
+    // FOLIOS QUE CAMBIARON DE CUARTEL: si un folio se anuló porque Liliana lo corrigió (ej.: C22 -> C23), su pasada PENDIENTE vieja
+    // (mismo contratista, labor y cuartel viejo, con esos días) ya no tiene líneas: se quita. Solo pendientes, nunca pagadas ni de la principal,
+    // y solo si el archivo nuevo ya no trae ninguna pasada de ese contratista + labor + cuartel.
+    if(opc.anuladas && opc.anuladas.length){
+      const cq=x=>[normGrupo(x.contratista),normLabor(x.labor),String(x.cuartel||'').toUpperCase().trim()].join('|');
+      const nuevasCQ=new Set(nuevas.map(cq)); const yaQuitadas=new Set(reemplazadas.map(v=>v.clave));
+      huerfanas=(PAGOS_FACT||[]).filter(v=> !clavesNuevas.has(v.clave) && !yaQuitadas.has(v.clave) && !v.fecha_factura
+        && dia(v.trabajo_ini)>LILIANA_PRINCIPAL_HASTA && !nuevasCQ.has(cq(v))
+        && opc.anuladas.some(a=>a.c===normGrupo(v.contratista) && a.l===normLabor(v.labor) && a.q===String(v.cuartel||'').toUpperCase().trim() && a.dia>=dia(v.trabajo_ini) && a.dia<=dia(v.trabajo_fin)));
+    }
   }
-  const clavesViejas=new Set(reemplazadas.map(v=>v.clave));
+  const clavesViejas=new Set([...reemplazadas,...huerfanas].map(v=>v.clave));
   const filas = sumar ? (PAGOS_FACT||[]).filter(p=>!clavesNuevas.has(p.clave)&&!clavesViejas.has(p.clave)).concat(nuevas) : nuevas;
   PAGOS_FACT=filas;
   PAGOS_INFO={fecha:hoy, filas:filas.length, origen:"local"};
@@ -2258,10 +2271,10 @@ async function otGuardarPagos(lista,opc){
       if(e2) throw e2;
     }
     PAGOS_INFO.origen="nube";
-    return {nube:true, reemplazadas:reemplazadas.length};
+    return {nube:true, reemplazadas:reemplazadas.length, huerfanas:huerfanas.length};
   }catch(e){
     console.warn("No se pudo guardar en la nube:",e.message||e);
-    return {nube:false, msg:e.message||String(e), reemplazadas:reemplazadas.length};
+    return {nube:false, msg:e.message||String(e), reemplazadas:reemplazadas.length, huerfanas:huerfanas.length};
   }
 }
 
