@@ -1884,6 +1884,8 @@ if(_analizar) _analizar.addEventListener("click",()=>{
       const {lista}=otLeerPagos(rowsLil2);
       paraCargar.pagos2 = lista;
       add('verde',`✓ Liliana 2: ${num(lista.length)} combinaciones de pagos que se SUMAN a las ya guardadas.`);
+      const fant=otPendientesFantasma(lista);
+      if(fant.length) add('naranja',`⚠ ${fant.length} pasada(s) PENDIENTE(S) de la app ya no están en este Excel y se quitarán: ${fant.slice(0,8).map(v=>`${v.contratista} · ${v.labor} · ${v.cuartel} · $${v.valor_unitario}`).join(' / ')}${fant.length>8?' …':''}. Si alguna NO debería quitarse, no cargues: puede ser un Excel más antiguo que el último que subiste.`);
     }catch(e){ avisos.push('Liliana 2: no se pudo leer la columna FECHA FACTURA ('+(e.message||e)+').'); }
   }
   const pAp=paraCargar.aprobados.reduce((s,f)=>s+f.plantas,0);
@@ -2188,27 +2190,43 @@ function otLeerPagos(rows){
       trabajo_ini:null, trabajo_fin:null
     };
     const p=mapa[k];
-    p.lineas++;
-    p.plantas += _N(r["N PLANTAS"]);
+    // OJO: _fmt(null) daría 1970-01-01, así que primero se descarta la celda vacía
+    const ffRaw=r["FECHA FACTURA"];
+    const ffOk = !(ffRaw===null||ffRaw===undefined||_S(ffRaw)==="") && _fmt(ffRaw) && _fmt(ffRaw)>="2000-01-01";
+    // Las líneas CON factura van a la pasada; las líneas SIN factura se acumulan aparte (p._sf), para que una pasada que ya tiene
+    // factura no oculte lo que todavía no se paga (antes quedaba todo «pagado» si UNA sola línea tenía fecha).
+    const acum = ffOk ? p : (p._sf = p._sf || {lineas:0, plantas:0, trabajo_ini:null, trabajo_fin:null});
+    acum.lineas++;
+    acum.plantas += _N(r["N PLANTAS"]);
 
     // rango de fechas en que se hizo el trabajo (sirve para distinguir la 1ª vuelta del repase)
     const ft=_fmt(r["FECHA"]);
     if(ft && ft>"2000-01-01"){
-      if(!p.trabajo_ini || ft<p.trabajo_ini) p.trabajo_ini=ft;
-      if(!p.trabajo_fin || ft>p.trabajo_fin) p.trabajo_fin=ft;
+      if(!acum.trabajo_ini || ft<acum.trabajo_ini) acum.trabajo_ini=ft;
+      if(!acum.trabajo_fin || ft>acum.trabajo_fin) acum.trabajo_fin=ft;
     }
+    if(ffOk){
+      const ff=_fmt(ffRaw);
+      if(!p.fecha_factura || ff>p.fecha_factura){ p.fecha_factura=ff; p.n_factura=_S(r["FACTURA"]); }
+    }
+  });
 
-    // OJO: _fmt(null) daría 1970-01-01, así que primero se descarta la celda vacía
-    const ffRaw=r["FECHA FACTURA"];
-    if(ffRaw===null||ffRaw===undefined||_S(ffRaw)==="") return;    // esta línea aún no se factura
-    const ff=_fmt(ffRaw);
-    if(!ff || ff<"2000-01-01") return;
-    if(!p.fecha_factura || ff>p.fecha_factura){ p.fecha_factura=ff; p.n_factura=_S(r["FACTURA"]); }
+  // Pasada con líneas facturadas Y sin facturar → se guardan DOS filas: la facturada (clave normal) y la pendiente (clave + "|SF").
+  // Así «Revisar antes de pagar» ve un pendiente al mismo precio de uno ya pagado, y no queda escondido.
+  const filas=[];
+  Object.values(mapa).forEach(p=>{
+    const sf=p._sf; delete p._sf;
+    if(p.lineas===0 && sf){                               // toda la pasada está sin factura
+      p.lineas=sf.lineas; p.plantas=sf.plantas; p.trabajo_ini=sf.trabajo_ini; p.trabajo_fin=sf.trabajo_fin; filas.push(p);
+    }else{
+      filas.push(p);                                      // la parte facturada
+      if(sf && sf.lineas>0) filas.push({...p, clave:p.clave+"|SF", lineas:sf.lineas, plantas:sf.plantas, trabajo_ini:sf.trabajo_ini, trabajo_fin:sf.trabajo_fin, fecha_factura:null, n_factura:""});
+    }
   });
 
   // Se guardan TODAS las pasadas, facturadas o no: una pasada sin factura es
   // trabajo hecho que está esperando pago (el caso del repase).
-  const lista=Object.values(mapa).sort((a,b)=>
+  const lista=filas.sort((a,b)=>
     a.contratista.localeCompare(b.contratista) || a.labor.localeCompare(b.labor)
     || a.cuartel.localeCompare(b.cuartel) || b.valor_unitario-a.valor_unitario);
   return {lista, leidas, cerrillo,
@@ -2219,6 +2237,19 @@ function otLeerPagos(rows){
 // Guarda en Supabase (reemplaza todo: el archivo de Liliana es la fuente de verdad)
 // opc.sumar=true (Liliana 2): se SUMAN a lo ya guardado; solo se reemplazan las pasadas con la
 // misma clave. No se borra nada más. Sin ese modo (Liliana): se reemplaza todo, como siempre.
+// Pasadas PENDIENTES guardadas que este Excel (Liliana 2) ya no trae: el contratista + labor + cuartel no existe en el archivo aunque
+// las fechas SÍ están dentro de lo que el archivo cubre (ej.: un folio que cambió de cuartel). Nunca toca pagadas ni la Liliana principal.
+function otPendientesFantasma(nuevas){
+  const dia=x=>String(x||'').slice(0,10);
+  const fechas=[]; nuevas.forEach(p=>{ if(p.trabajo_ini) fechas.push(dia(p.trabajo_ini)); if(p.trabajo_fin) fechas.push(dia(p.trabajo_fin)); });
+  if(!fechas.length) return [];
+  fechas.sort(); const desde=fechas[0], hasta=fechas[fechas.length-1];
+  const cq=x=>[normGrupo(x.contratista),normLabor(x.labor),String(x.cuartel||'').toUpperCase().trim()].join('|');
+  const clavesNuevas=new Set(nuevas.map(p=>p.clave)), nuevasCQ=new Set(nuevas.map(cq));
+  return (PAGOS_FACT||[]).filter(v=> !v.fecha_factura && !clavesNuevas.has(v.clave) && dia(v.trabajo_ini)>LILIANA_PRINCIPAL_HASTA
+    && dia(v.trabajo_ini)>=desde && dia(v.trabajo_fin)<=hasta && !nuevasCQ.has(cq(v)));
+}
+
 async function otGuardarPagos(lista,opc){
   const sumar=!!(opc&&opc.sumar);
   const hoy=_fmt(new Date());
@@ -2246,6 +2277,11 @@ async function otGuardarPagos(lista,opc){
         && dia(v.trabajo_ini)>LILIANA_PRINCIPAL_HASTA && !nuevasCQ.has(cq(v))
         && opc.anuladas.some(a=>a.c===normGrupo(v.contratista) && a.l===normLabor(v.labor) && a.q===String(v.cuartel||'').toUpperCase().trim() && a.dia>=dia(v.trabajo_ini) && a.dia<=dia(v.trabajo_fin)));
     }
+    // fantasmas por cobertura de fechas (aunque los folios ya se hubieran anulado en una carga anterior)
+    const yaFuera=new Set([...reemplazadas,...huerfanas].map(v=>v.clave));
+    otPendientesFantasma(nuevas).forEach(v=>{ if(!yaFuera.has(v.clave)){ huerfanas.push(v); yaFuera.add(v.clave); } });
+    // una fila «|SF» (líneas sin factura) cuya pasada ya viene completa y facturada en el Excel nuevo: ya no corresponde
+    (PAGOS_FACT||[]).forEach(v=>{ if(String(v.clave||'').endsWith('|SF') && !clavesNuevas.has(v.clave) && clavesNuevas.has(String(v.clave).slice(0,-3)) && !yaFuera.has(v.clave)){ huerfanas.push(v); yaFuera.add(v.clave); } });
   }
   const clavesViejas=new Set([...reemplazadas,...huerfanas].map(v=>v.clave));
   const filas = sumar ? (PAGOS_FACT||[]).filter(p=>!clavesNuevas.has(p.clave)&&!clavesViejas.has(p.clave)).concat(nuevas) : nuevas;
